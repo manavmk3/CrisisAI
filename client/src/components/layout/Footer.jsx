@@ -5,8 +5,6 @@ export default function Footer() {
   return (
     <footer className="border-t border-slate-800/80 bg-[#070a11] text-slate-400 py-8 px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        
-        {/* Safety & Protocol Disclaimer Alert */}
         <div className="rounded-xl border border-amber-900/40 bg-amber-950/20 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="rounded-lg bg-amber-900/30 p-2 text-amber-400 shrink-0 border border-amber-700/30">
             <ShieldAlert className="h-5 w-5" />
@@ -24,10 +22,6 @@ export default function Footer() {
 
         <div className="pt-4 border-t border-slate-900/60 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 gap-2">
           <p>© 2026 CrisisAI Open Source. Built for humanitarian resilience.</p>
-          <p className="flex items-center gap-1">
-            <span>Powered by</span>
-            <span className="font-semibold text-slate-400">Vite & Tailwind CSS</span>
-          </p>
         </div>
 
       </div>

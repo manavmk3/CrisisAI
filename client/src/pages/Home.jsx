@@ -4,29 +4,20 @@ import {
   ShieldAlert, 
   Activity, 
   Cpu, 
-  MapPin, 
   Users, 
   ArrowRight, 
-  Sparkles, 
   CheckCircle2, 
   Radio, 
   Layers, 
-  Clock, 
   Building2,
   ChevronRight
 } from 'lucide-react';
 import { useRole, ROLES, ROLE_CONFIG } from '../context/RoleContext';
+import ResponsiveHeroBanner from '../components/ui/responsive-hero-banner';
+import Footer from '../components/layout/Footer';
 
 export default function Home() {
   const { currentRole, setCurrentRole } = useRole();
-
-
-  const quickStats = [
-    { label: 'Active Incidents', value: '38', change: '+4 in last hr', icon: Activity, color: 'text-red-400' },
-    { label: 'AI Extraction Latency', value: '1.4s', change: 'Gemini 1.5 Flash', icon: Cpu, color: 'text-amber-400' },
-    { label: 'Responders En Route', value: '124', change: '89% availability', icon: Users, color: 'text-blue-400' },
-    { label: 'Open Shelters & Hubs', value: '16', change: 'Capacity: 4,800', icon: Building2, color: 'text-emerald-400' },
-  ];
 
   const rolePortals = [
     {
@@ -64,89 +55,23 @@ export default function Home() {
   ];
 
   return (
-    <div className="space-y-12 pb-12">
-      
-      {/* Hero Section */}
-      <section className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900/90 via-slate-900/50 to-[#0b0f19] p-6 sm:p-10 lg:p-12 shadow-2xl">
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-red-600/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-blue-600/10 blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#0b0f19] text-slate-100">
+      <ResponsiveHeroBanner />
 
-        <div className="relative z-10 max-w-3xl space-y-5">
-          <div className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-950/40 px-3.5 py-1 text-xs font-semibold text-red-300">
-            <Radio className="h-3.5 w-3.5 animate-pulse text-red-400" />
-            <span>CrisisAI Core • Rapid Response Engine</span>
-          </div>
-
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
-            AI-Powered Disaster Response & <span className="bg-gradient-to-r from-red-500 via-rose-400 to-amber-400 bg-clip-text text-transparent">Resource Coordination</span>
-          </h1>
-
-          <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-            CrisisAI converts unstructured natural-language distress calls into structured incidents, calculates explainable priority scores, eliminates duplicates, and matches field responders with verified needs in seconds.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <Link
-              to="/report"
-              className="flex items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-red-900/40 hover:bg-red-500 active:scale-95 transition"
-            >
-              <ShieldAlert className="h-4 w-4" />
-              Report an Emergency
-            </Link>
-
-            <Link
-              to="/dashboard"
-              className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 px-5 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition"
-            >
-              <span>Explore Dashboard</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-
-            <span className="text-xs text-slate-400 pl-2">
-              Viewing as: <strong className="text-red-400 capitalize">{currentRole}</strong>
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* Real-time Ticker / Operational Highlights */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {quickStats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={stat.label}
-              className="glass-card rounded-xl p-4 border border-slate-800 hover:border-slate-700 transition"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-400">{stat.label}</span>
-                <Icon className={`h-4 w-4 ${stat.color}`} />
-              </div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-bold tracking-tight text-white">{stat.value}</span>
-                <span className="text-[11px] font-medium text-slate-400">{stat.change}</span>
-              </div>
-            </div>
-          );
-        })}
-      </section>
-
-
-      {/* Role Portals Grid */}
-      <section className="space-y-4">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-              <Layers className="h-4 w-4 text-blue-400" />
+            <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              <Layers className="h-5 w-5 text-blue-400" />
               Role-Based Portals & Dashboards
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-sm text-slate-400 mt-1">
               Tailored interfaces built for citizens in distress, field volunteers, and command authorities.
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {rolePortals.map((portal) => {
             const isCurrent = currentRole === portal.role;
             return (
@@ -210,7 +135,7 @@ export default function Home() {
         </div>
       </section>
 
-
+      <Footer />
     </div>
   );
 }
