@@ -8,7 +8,7 @@ export default function MainLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0b0f19] text-slate-100">
+    <div className="min-h-screen flex flex-col text-slate-100">
       {/* Top sticky Navbar */}
       <Navbar
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}

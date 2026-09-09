@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ShieldAlert, 
-  MapPin, 
-  Users, 
-  Send, 
-  Sparkles, 
-  AlertCircle, 
-  Phone, 
-  Radio, 
-  Clock 
+import {
+  ShieldAlert,
+  MapPin,
+  Users,
+  Send,
+  Sparkles,
+  AlertCircle,
+  Phone,
+  Radio,
+  Clock
 } from 'lucide-react';
 
 export default function ReportEmergency() {
@@ -33,7 +33,7 @@ export default function ReportEmergency() {
 
   return (
     <div className="max-w-2xl mx-auto py-6 sm:py-10 space-y-6">
-      
+
       {/* Title */}
       <div className="space-y-2">
         <div className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-950/40 px-3 py-1 text-xs font-semibold text-red-300">
@@ -78,7 +78,7 @@ export default function ReportEmergency() {
       ) : (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 sm:p-8 shadow-xl backdrop-blur-sm space-y-6">
           <form onSubmit={handleSubmit} className="space-y-5">
-            
+
             {/* Natural language free-text input */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-200 flex items-center justify-between">

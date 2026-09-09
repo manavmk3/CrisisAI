@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
-import { 
-  AlertTriangle, 
-  Layers, 
-  MapPin, 
-  ShieldCheck, 
-  Activity, 
-  Cpu, 
-  Clock, 
-  Filter, 
-  Plus, 
-  Sparkles, 
-  Truck, 
-  CheckCircle, 
+import {
+  AlertTriangle,
+  Layers,
+  MapPin,
+  ShieldCheck,
+  Activity,
+  Cpu,
+  Clock,
+  Filter,
+  Plus,
+  Sparkles,
+  Truck,
+  CheckCircle,
   ArrowUpRight,
   RefreshCw
 } from 'lucide-react';
 import { useRole, ROLES, ROLE_CONFIG } from '../context/RoleContext';
+import GlobeStudy from '@/components/ui/globe-study';
 
 export default function Dashboard() {
   const { currentRole, ROLES } = useRole();
@@ -90,8 +91,37 @@ export default function Dashboard() {
   const roleInfo = ROLE_CONFIG[currentRole];
 
   return (
-    <div className="space-y-6 pb-8">
-      
+    <div className="relative min-h-screen">
+
+      {/* ── 3D Rotating Globe Background ── */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+        }}
+      >
+        {/* The iframe needs pointer-events to initialise its canvas */}
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'auto' }}>
+          <GlobeStudy mode="dark" opacity={0.80} />
+        </div>
+        {/* Vignette overlay keeps dashboard cards legible */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'linear-gradient(160deg, rgba(11,15,25,0.60) 0%, rgba(11,15,25,0.25) 50%, rgba(11,15,25,0.65) 100%)',
+            pointerEvents: 'none',
+          }}
+        />
+      </div>
+
+      {/* ── Dashboard content (above globe) ── */}
+      <div className="relative space-y-6 pb-8" style={{ zIndex: 1 }}>
+
       {/* Dashboard Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
         <div>
@@ -192,7 +222,7 @@ export default function Dashboard() {
 
       {/* Main Content Grid: Incident Triage Table + Map/Resource Teasers */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Left 2 Cols: Triage Queue */}
         <div className="lg:col-span-2 space-y-4">
           <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5">
@@ -213,11 +243,10 @@ export default function Dashboard() {
                   <button
                     key={f}
                     onClick={() => setActiveFilter(f)}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition ${
-                      activeFilter === f
+                    className={`px-2.5 py-1 rounded-lg font-medium transition ${activeFilter === f
                         ? 'bg-red-600 text-white'
                         : 'bg-slate-800 text-slate-400 hover:text-white'
-                    }`}
+                      }`}
                   >
                     {f}
                   </button>
@@ -235,13 +264,12 @@ export default function Dashboard() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-[10px] text-slate-400 font-semibold">{inc.id}</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                            inc.severity === 'CRITICAL' 
-                              ? 'bg-red-950/80 text-red-400 border-red-800/50' 
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${inc.severity === 'CRITICAL'
+                              ? 'bg-red-950/80 text-red-400 border-red-800/50'
                               : inc.severity === 'HIGH'
-                              ? 'bg-amber-950/80 text-amber-400 border-amber-800/50'
-                              : 'bg-blue-950/80 text-blue-400 border-blue-800/50'
-                          }`}>
+                                ? 'bg-amber-950/80 text-amber-400 border-amber-800/50'
+                                : 'bg-blue-950/80 text-blue-400 border-blue-800/50'
+                            }`}>
                             {inc.severity}
                           </span>
                           <span className="text-[10px] text-slate-400">{inc.time}</span>
@@ -288,7 +316,7 @@ export default function Dashboard() {
 
         {/* Right 1 Col: Live Map Preview + Quick Allocation Teasers */}
         <div className="space-y-4">
-          
+
           {/* Map Teaser (Day 18 Foundation) */}
           <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 space-y-3">
             <div className="flex items-center justify-between">
@@ -304,11 +332,11 @@ export default function Dashboard() {
             {/* Map Placeholder Graphic */}
             <div className="h-44 rounded-lg border border-slate-800 bg-[#080d1a] relative overflow-hidden flex flex-col items-center justify-center text-center p-4">
               <div className="absolute inset-0 opacity-20 bg-grid-pattern pointer-events-none"></div>
-              
+
               {/* Simulated Map Markers */}
               <div className="absolute top-8 left-10 h-3 w-3 rounded-full bg-red-500 animate-ping"></div>
               <div className="absolute top-8 left-10 h-3 w-3 rounded-full bg-red-600 shadow-md"></div>
-              
+
               <div className="absolute bottom-10 right-14 h-3 w-3 rounded-full bg-blue-500 shadow-md"></div>
               <div className="absolute top-16 right-20 h-3 w-3 rounded-full bg-emerald-500 shadow-md"></div>
 
@@ -343,6 +371,9 @@ export default function Dashboard() {
 
         </div>
 
+      </div>
+
+      {/* close content wrapper */}
       </div>
 
     </div>
