@@ -3,11 +3,6 @@ import config from '../config/env.js';
 
 const router = express.Router();
 
-/**
- * @route   GET /api/health
- * @desc    System health and diagnostics check
- * @access  Public
- */
 router.get('/', (req, res) => {
   const uptimeSeconds = process.uptime();
   const memoryUsage = process.memoryUsage();

@@ -11,7 +11,6 @@ const server = app.listen(PORT, () => {
   console.log(`=========================================`);
 });
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('💥 UNHANDLED REJECTION! Shutting down gracefully...');
   console.error(err.name, err.message);
@@ -20,14 +19,12 @@ process.on('unhandledRejection', (err) => {
   });
 });
 
-// Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
   console.error('💥 UNCAUGHT EXCEPTION! Shutting down immediately...');
   console.error(err.name, err.message);
   process.exit(1);
 });
 
-// Handle graceful termination
 const gracefulShutdown = (signal) => {
   console.log(`\n🛑 Received ${signal}. Gracefully closing HTTP server...`);
   server.close(() => {
@@ -35,7 +32,6 @@ const gracefulShutdown = (signal) => {
     process.exit(0);
   });
 
-  // Force close if graceful shutdown takes longer than 10 seconds
   setTimeout(() => {
     console.error('⚠️ Could not close connections in time, forcefully shutting down');
     process.exit(1);
