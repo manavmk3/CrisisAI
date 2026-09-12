@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import BlackHole from './black-hole';
 
 const ResponsiveHeroBanner = ({
     logoUrl = "",
-    backgroundImageUrl = "https://images.unsplash.com/photo-1599059813005-11265ba4b4ce?w=1920&q=80",
     navLinks = [
         { label: "Home", href: "/", isActive: true },
         { label: "Dashboard", href: "/dashboard" },
@@ -32,14 +32,12 @@ const ResponsiveHeroBanner = ({
 
     return (
         <section className="w-full isolate min-h-screen overflow-hidden relative">
-            <img
-                src={backgroundImageUrl}
-                alt="Crisis response background"
-                className="w-full h-full object-cover absolute top-0 right-0 bottom-0 left-0"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/80" />
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-red-600/15 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-orange-600/10 rounded-full blur-[100px] pointer-events-none" />
+            <div className="absolute inset-0">
+                <BlackHole />
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70 pointer-events-none" />
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-red-600/8 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-orange-600/5 rounded-full blur-[100px] pointer-events-none" />
             <div className="pointer-events-none absolute inset-0 ring-1 ring-black/30" />
 
             <header className="z-10 xl:top-4 relative">
