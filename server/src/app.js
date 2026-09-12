@@ -3,6 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import config from './config/env.js';
 import healthRoutes from './routes/health.routes.js';
+import authRoutes from './routes/auth.routes.js';
 import notFound from './middleware/notFound.js';
 import errorHandler from './middleware/errorHandler.js';
 
@@ -10,11 +11,17 @@ const app = express();
 
 app.use(morgan(config.isDevelopment ? 'dev' : 'combined'));
 
+const allowedOrigins = [
+  config.clientUrl,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+].filter(Boolean);
+
 app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      if (config.isDevelopment || origin === config.clientUrl) {
+      if (config.isDevelopment || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
       return callback(new Error(`Origin ${origin} not allowed by CORS`));
@@ -38,6 +45,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/health', healthRoutes);
+app.use('/api/auth', authRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
