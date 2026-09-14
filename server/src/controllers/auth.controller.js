@@ -1,4 +1,6 @@
+import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import config from '../config/env.js';
 
 const VALID_ROLES = ['citizen', 'responder', 'authority', 'admin'];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -96,6 +98,95 @@ export const register = async (req, res, next) => {
   }
 };
 
+export const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required',
+      });
+    }
+
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required',
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Explicitly select password since User model sets select: false
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password.',
+      });
+    }
+
+    const isPasswordMatch = await user.comparePassword(password);
+    if (!isPasswordMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password.',
+      });
+    }
+
+    // Generate JWT token with safe payload
+    const payload = {
+      id: user._id,
+      role: user.role,
+      email: user.email,
+    };
+
+    const token = jwt.sign(payload, config.jwt.secret, {
+      expiresIn: config.jwt.expiresIn,
+    });
+
+    const userResponse = user.toJSON();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        token,
+        user: userResponse,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMe = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authenticated',
+      });
+    }
+
+    const userResponse = req.user.toJSON ? req.user.toJSON() : req.user;
+
+    return res.status(200).json({
+      success: true,
+      message: 'User profile retrieved successfully',
+      data: {
+        user: userResponse,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   register,
+  login,
+  getMe,
 };

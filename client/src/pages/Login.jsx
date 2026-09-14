@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { KeyRound, Mail, ArrowRight, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { KeyRound, Mail, ArrowRight, ShieldCheck, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useRole, ROLES } from '../context/RoleContext';
+import { useAuth } from '../context/AuthContext';
 import authBg from '../assets/auth-bg.jpg';
 
 export default function Login() {
   const navigate = useNavigate();
   const { setCurrentRole } = useRole();
-  const [email, setEmail] = useState('authority@crisisai.org');
-  const [password, setPassword] = useState('CrisisAI@2026');
+  const { login } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [roleSelection, setRoleSelection] = useState(ROLES.AUTHORITY);
 
   const demoAccounts = [
@@ -23,17 +26,42 @@ export default function Login() {
     setEmail(demo.email);
     setPassword('CrisisAI@2026');
     setRoleSelection(demo.role);
-    setCurrentRole(demo.role);
+    setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
+
     setLoading(true);
-    setCurrentRole(roleSelection);
-    setTimeout(() => {
-      setLoading(false);
+
+    try {
+      const data = await login(email.trim(), password);
+      if (data?.user?.role) {
+        setCurrentRole(data.user.role);
+      } else {
+        setCurrentRole(roleSelection);
+      }
       navigate('/dashboard');
-    }, 600);
+    } catch (err) {
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setError('Unable to connect to CrisisAI server. Please ensure the backend is running at http://localhost:8000.');
+      } else {
+        setError(err.message || 'Invalid email or password.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -52,7 +80,7 @@ export default function Login() {
       <div className="relative w-full max-w-md z-10 my-4">
         <div className="relative rounded-3xl border border-blue-400/25 bg-[#090e1a]/80 p-7 sm:p-9 shadow-[0_0_60px_-10px_rgba(37,99,235,0.4)] backdrop-blur-xl transition-all duration-300">
           
-          <div className="space-y-1.5 mb-7">
+          <div className="space-y-1.5 mb-6">
             <span className="text-[11px] font-semibold tracking-wider text-blue-400 uppercase">
               Login your account
             </span>
@@ -63,6 +91,13 @@ export default function Login() {
               Enter your email and password to access CrisisAI.
             </p>
           </div>
+
+          {error && (
+            <div className="mb-5 flex items-start gap-2.5 rounded-2xl border border-red-500/30 bg-red-950/50 p-3.5 text-xs text-red-300 backdrop-blur-md animate-in fade-in duration-200">
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-400 mt-0.5" />
+              <div className="leading-relaxed">{error}</div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">

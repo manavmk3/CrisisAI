@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Flame, 
   ShieldAlert, 
@@ -8,19 +8,30 @@ import {
   X, 
   LogIn, 
   UserPlus, 
+  LogOut,
+  User as UserIcon,
   ChevronDown, 
   Radio, 
   LayoutDashboard 
 } from 'lucide-react';
 import { useRole, ROLES, ROLE_CONFIG } from '../../context/RoleContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
   const { currentRole, setCurrentRole } = useRole();
+  const { user, isAuthenticated, logout } = useAuth();
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isActive = (path) => location.pathname === path;
+
+  const handleLogout = () => {
+    logout();
+    setMobileMenuOpen(false);
+    navigate('/login');
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#0b0f19]/90 backdrop-blur-md">
@@ -136,21 +147,45 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
           </nav>
 
           {/* Auth Buttons */}
-          <div className="hidden sm:flex items-center gap-1.5 border-l border-slate-800 pl-2">
-            <Link
-              to="/login"
-              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition"
-            >
-              <LogIn className="h-3.5 w-3.5" />
-              Login
-            </Link>
-            <Link
-              to="/register"
-              className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 hover:text-white transition"
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-              Register
-            </Link>
+          <div className="hidden sm:flex items-center gap-2 border-l border-slate-800 pl-2.5">
+            {isAuthenticated && user ? (
+              <>
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-900/90 border border-slate-800 px-2.5 py-1 text-xs">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600/30 text-[10px] font-bold text-blue-400">
+                    {user.name ? user.name[0].toUpperCase() : 'U'}
+                  </div>
+                  <span className="max-w-[110px] truncate text-slate-200 font-medium">
+                    {user.name || user.email}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-950/30 px-2.5 py-1.5 text-xs font-medium text-red-300 hover:bg-red-900/40 hover:text-red-200 transition cursor-pointer"
+                  title="Log out of CrisisAI"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Logout</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  Login
+                </Link>
+                <Link
+                  to="/register"
+                  className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 hover:text-white transition"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Register
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile hamburger menu button */}
@@ -181,20 +216,39 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
           >
             Dashboard
           </Link>
-          <Link
-            to="/login"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800"
-          >
-            Login
-          </Link>
-          <Link
-            to="/register"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800"
-          >
-            Register
-          </Link>
+
+          {isAuthenticated && user ? (
+            <div className="pt-2 border-t border-slate-800/80 space-y-2">
+              <div className="px-3 py-1.5 text-xs text-slate-400">
+                Signed in as <span className="text-white font-medium">{user.name || user.email}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-950/40 px-3 py-2 text-sm font-medium text-red-300 hover:bg-red-900/50"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          ) : (
+            <div className="pt-2 border-t border-slate-800/80 space-y-1">
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800"
+              >
+                Login
+              </Link>
+              <Link
+                to="/register"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800"
+              >
+                Register
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </header>
