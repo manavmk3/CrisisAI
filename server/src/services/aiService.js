@@ -1,7 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import config from '../config/env.js';
 import { buildIncidentAnalysisPrompt } from './aiPrompt.service.js';
-import { safeParseJSON, validateAIOutput } from './aiIncidentSchema.js';
+import { safeParseJSON } from './aiIncidentSchema.js';
+import { validateWithJoi } from './aiOutputValidator.js';
+import { buildCorrectionPrompt } from './aiCorrectionPrompt.js';
+import { logValidationFailure, logManualReviewFallback } from './aiValidationLogger.js';
 
 export class AIServiceError extends Error {
   constructor(message, statusCode = 500, code = 'AI_ERROR') {
@@ -68,43 +71,82 @@ function classifyGeminiError(err) {
   );
 }
 
+async function callGemini(model, prompt) {
+  try {
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  } catch (err) {
+    throw classifyGeminiError(err);
+  }
+}
+
+function parseAndValidate(rawText) {
+  const { parsed, error: parseError } = safeParseJSON(rawText);
+
+  if (parseError || !parsed) {
+    return { valid: false, sanitized: null, errors: [], parseError: parseError || 'Empty response' };
+  }
+
+  const { valid, errors, sanitized } = validateWithJoi(parsed);
+  return { valid, sanitized, errors, parseError: null };
+}
+
 export async function analyzeReport(reportText) {
   const prompt = buildIncidentAnalysisPrompt(reportText);
 
   const genAI = getGeminiClient();
   const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
-  let rawText;
+  const rawText = await callGemini(model, prompt);
+  const attempt1 = parseAndValidate(rawText);
+
+  if (attempt1.valid) {
+    return { status: 'analyzed', data: attempt1.sanitized };
+  }
+
+  logValidationFailure({
+    attempt: 1,
+    errors: attempt1.errors,
+    parseError: attempt1.parseError,
+  });
+
+  const correctionErrors = attempt1.parseError
+    ? [{ field: 'response', error: attempt1.parseError }]
+    : attempt1.errors;
+
+  const correctionPromptText = buildCorrectionPrompt(reportText, correctionErrors);
+
+  let retryRawText;
   try {
-    const result = await model.generateContent(prompt);
-    rawText = result.response.text();
+    retryRawText = await callGemini(model, correctionPromptText);
   } catch (err) {
-    throw classifyGeminiError(err);
+    logManualReviewFallback(2);
+    return {
+      status: 'needs_manual_review',
+      data: null,
+      message: 'AI analysis could not be validated. Manual review is required.',
+    };
   }
 
-  const { parsed, error: parseError } = safeParseJSON(rawText);
+  const attempt2 = parseAndValidate(retryRawText);
 
-  if (parseError || !parsed) {
-    console.error('[AI Service] Failed to parse AI response:', parseError);
-    throw new AIServiceError(
-      'AI returned a malformed response. Please try again.',
-      502,
-      'AI_PARSE_ERROR'
-    );
+  if (attempt2.valid) {
+    return { status: 'analyzed', data: attempt2.sanitized };
   }
 
-  const { valid, errors, sanitized } = validateAIOutput(parsed);
+  logValidationFailure({
+    attempt: 2,
+    errors: attempt2.errors,
+    parseError: attempt2.parseError,
+  });
 
-  if (!valid) {
-    console.error('[AI Service] AI response failed schema validation:', errors);
-    throw new AIServiceError(
-      'AI response did not match the expected schema. Please try again.',
-      502,
-      'AI_VALIDATION_ERROR'
-    );
-  }
+  logManualReviewFallback(2);
 
-  return sanitized;
+  return {
+    status: 'needs_manual_review',
+    data: null,
+    message: 'AI analysis could not be validated. Manual review is required.',
+  };
 }
 
 export default { analyzeReport, AIServiceError };

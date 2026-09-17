@@ -71,6 +71,7 @@ export default function ReportEmergency() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [aiResult, setAiResult] = useState(null);
+  const [aiStatus, setAiStatus] = useState(null);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
@@ -78,6 +79,7 @@ export default function ReportEmergency() {
     setIsSubmitting(true);
     setError('');
     setAiResult(null);
+    setAiStatus(null);
 
     try {
       const headers = { 'Content-Type': 'application/json' };
@@ -97,7 +99,13 @@ export default function ReportEmergency() {
         throw new Error(data.error || data.message || 'Failed to analyze report. Please try again.');
       }
 
-      setAiResult(data.data);
+      setAiStatus(data.status || 'analyzed');
+
+      if (data.status === 'needs_manual_review') {
+        setAiResult(null);
+      } else {
+        setAiResult(data.data);
+      }
       setIsSuccess(true);
     } catch (err) {
       setError(err.message || 'An unexpected error occurred. Please try again.');
@@ -109,6 +117,7 @@ export default function ReportEmergency() {
   const handleReset = () => {
     setIsSuccess(false);
     setAiResult(null);
+    setAiStatus(null);
     setDescription('');
     setLocation('');
     setError('');
@@ -139,7 +148,35 @@ export default function ReportEmergency() {
           </p>
         </div>
 
-        {isSuccess && aiResult ? (
+        {isSuccess && aiStatus === 'needs_manual_review' ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-yellow-500/30 bg-black/50 p-6 sm:p-8 space-y-5 backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-yellow-600/20 border border-yellow-500/40 flex items-center justify-center">
+                  <AlertCircle className="h-5 w-5 text-yellow-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Manual Review Required</h2>
+                  <p className="text-[11px] text-white/50">AI analysis could not be validated</p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-yellow-500/20 bg-yellow-950/30 p-4">
+                <p className="text-xs text-yellow-200/90 leading-relaxed">
+                  AI analysis requires manual review. Please verify the emergency details and contact responders directly if immediate assistance is needed.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={handleReset}
+                className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20 backdrop-blur-sm transition-colors flex items-center gap-1.5"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Submit Another Report
+              </button>
+            </div>
+          </div>
+        ) : isSuccess && aiResult ? (
           <div className="space-y-4">
             <div className="rounded-2xl border border-purple-500/30 bg-black/50 p-6 sm:p-8 space-y-5 backdrop-blur-md">
               <div className="flex items-center gap-3">

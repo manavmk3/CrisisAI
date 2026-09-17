@@ -32,11 +32,21 @@ export const analyzeEmergencyReport = async (req, res) => {
       });
     }
 
-    const extraction = await analyzeReport(report);
+    const result = await analyzeReport(report);
+
+    if (result.status === 'needs_manual_review') {
+      return res.status(200).json({
+        success: true,
+        status: 'needs_manual_review',
+        data: null,
+        message: result.message || 'AI analysis could not be validated. Manual review is required.',
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      data: extraction,
+      status: 'analyzed',
+      data: result.data,
     });
   } catch (err) {
     if (err instanceof AIServiceError) {
