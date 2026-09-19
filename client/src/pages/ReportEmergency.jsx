@@ -7,15 +7,14 @@ import {
   Send,
   Sparkles,
   AlertCircle,
-  Phone,
-  Radio,
-  Clock,
   Activity,
   Zap,
-  ChevronRight,
   RotateCcw,
   Brain,
   Loader2,
+  CheckCircle2,
+  Gauge,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import reportBg from '../assets/report-bg.jpg';
@@ -48,64 +47,85 @@ const CATEGORY_LABELS = {
   other: '⚠️ Other',
 };
 
-const RESOURCE_LABELS = {
-  ambulance: '🚑 Ambulance',
-  medical_team: '👨‍⚕️ Medical Team',
-  fire_rescue: '🚒 Fire Rescue',
-  search_rescue: '🔍 Search & Rescue',
-  food: '🍞 Food',
-  drinking_water: '💧 Drinking Water',
-  shelter: '🏕️ Shelter',
-  rescue_boat: '🚤 Rescue Boat',
-  police: '🚔 Police',
-  evacuation_team: '🚶 Evacuation Team',
-};
+const AVAILABLE_RESOURCES = [
+  { id: 'ambulance', label: '🚑 Ambulance' },
+  { id: 'medical_team', label: '👨‍⚕️ Medical Team' },
+  { id: 'fire_rescue', label: '🚒 Fire Rescue' },
+  { id: 'search_rescue', label: '🔍 Search & Rescue' },
+  { id: 'rescue_boat', label: '🚤 Rescue Boat' },
+  { id: 'food', label: '🍞 Food Supplies' },
+  { id: 'drinking_water', label: '💧 Clean Water' },
+  { id: 'shelter', label: '🏕️ Emergency Shelter' },
+  { id: 'police', label: '🚔 Police' },
+  { id: 'evacuation_team', label: '🚶 Evacuation Team' },
+];
 
 export default function ReportEmergency() {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [urgency, setUrgency] = useState('HIGH');
-  const [affectedCount, setAffectedCount] = useState('5-10');
+  const [urgency, setUrgency] = useState('immediate');
+  const [selectedNeeds, setSelectedNeeds] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [aiResult, setAiResult] = useState(null);
+  const [incident, setIncident] = useState(null);
   const [aiStatus, setAiStatus] = useState(null);
   const [error, setError] = useState('');
 
+  const toggleResource = (id) => {
+    setSelectedNeeds((prev) =>
+      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
+    );
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setError('');
-    setAiResult(null);
+    setIncident(null);
     setAiStatus(null);
 
-    try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+    if (!token) {
+      setError('You must be logged in to submit an emergency incident report.');
+      return;
+    }
 
-      const response = await fetch(`${API_BASE_URL}/ai/analyze`, {
+    if (!description.trim()) {
+      setError('Please provide a description of the emergency.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/incidents`, {
         method: 'POST',
-        headers,
-        body: JSON.stringify({ report: description }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          report: description.trim(),
+          location: location.trim(),
+          urgency: urgency.toLowerCase(),
+          needs: selectedNeeds,
+        }),
       });
 
       const data = await response.json();
 
+      if (response.status === 200 && data.status === 'needs_manual_review') {
+        setAiStatus('needs_manual_review');
+        setIsSuccess(true);
+        return;
+      }
+
       if (!response.ok || !data.success) {
-        throw new Error(data.error || data.message || 'Failed to analyze report. Please try again.');
+        throw new Error(data.message || 'Failed to submit emergency report. Please try again.');
       }
 
-      setAiStatus(data.status || 'analyzed');
-
-      if (data.status === 'needs_manual_review') {
-        setAiResult(null);
-      } else {
-        setAiResult(data.data);
-      }
+      setAiStatus('analyzed');
+      setIncident(data.data);
       setIsSuccess(true);
     } catch (err) {
       setError(err.message || 'An unexpected error occurred. Please try again.');
@@ -116,10 +136,12 @@ export default function ReportEmergency() {
 
   const handleReset = () => {
     setIsSuccess(false);
-    setAiResult(null);
+    setIncident(null);
     setAiStatus(null);
     setDescription('');
     setLocation('');
+    setUrgency('immediate');
+    setSelectedNeeds([]);
     setError('');
   };
 
@@ -144,7 +166,7 @@ export default function ReportEmergency() {
             Submit Disaster Report
           </h1>
           <p className="text-xs sm:text-sm text-white/70">
-            Describe your situation in natural language. Our Gemini AI model will automatically extract key details, triage severity, and alert responders.
+            Describe the situation in natural language. Our validated AI pipeline extracts critical telemetry, evaluates urgency, calculates priority score, and records the incident for immediate response.
           </p>
         </div>
 
@@ -157,14 +179,17 @@ export default function ReportEmergency() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white">Manual Review Required</h2>
-                  <p className="text-[11px] text-white/50">AI analysis could not be validated</p>
+                  <p className="text-[11px] text-white/50">Quality threshold safeguard triggered</p>
                 </div>
               </div>
               <div className="rounded-xl border border-yellow-500/20 bg-yellow-950/30 p-4">
-                <p className="text-xs text-yellow-200/90 leading-relaxed">
-                  AI analysis requires manual review. Please verify the emergency details and contact responders directly if immediate assistance is needed.
+                <p className="text-xs text-yellow-200/90 leading-relaxed font-medium">
+                  AI analysis requires manual review. Please verify the emergency details.
                 </p>
               </div>
+              <p className="text-[11px] text-white/60">
+                To guarantee safety, ambiguous or unstructured reports are queued for human dispatch validation before autonomous processing.
+              </p>
             </div>
             <div className="flex justify-center gap-3">
               <button
@@ -176,85 +201,110 @@ export default function ReportEmergency() {
               </button>
             </div>
           </div>
-        ) : isSuccess && aiResult ? (
+        ) : isSuccess && incident ? (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-purple-500/30 bg-black/50 p-6 sm:p-8 space-y-5 backdrop-blur-md">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-purple-600/20 border border-purple-500/40 flex items-center justify-center">
-                  <Brain className="h-5 w-5 text-purple-400" />
+            <div className="rounded-2xl border border-green-500/30 bg-black/60 p-6 sm:p-8 space-y-5 backdrop-blur-md shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-green-600/20 border border-green-500/40 flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5 text-green-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white tracking-wide">INCIDENT REPORTED</h2>
+                    <p className="text-[11px] text-white/50">Incident ID: {incident._id || incident.id}</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white">AI Analysis Complete</h2>
-                  <p className="text-[11px] text-white/50">Gemini structured extraction</p>
-                </div>
+                <span className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-xs font-bold text-emerald-300">
+                  {incident.status ? incident.status.toUpperCase() : 'REPORTED'}
+                </span>
               </div>
 
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                 <p className="text-xs font-medium text-white/90 leading-relaxed">
-                  {aiResult.summary}
+                  {incident.summary}
                 </p>
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-500/40 bg-purple-950/50 px-3 py-1 text-xs font-semibold text-purple-300">
-                  {CATEGORY_LABELS[aiResult.category] || aiResult.category}
+                  {CATEGORY_LABELS[incident.category] || `Category: ${incident.category}`}
                 </span>
-                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${SEVERITY_COLORS[aiResult.severity] || 'border-white/20 bg-white/5 text-white/70'}`}>
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${SEVERITY_COLORS[incident.severity] || 'border-white/20 bg-white/5 text-white/70'}`}>
                   <Activity className="h-3 w-3" />
-                  Severity: {aiResult.severity}
+                  Severity: {incident.severity?.toUpperCase()}
                 </span>
-                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${URGENCY_COLORS[aiResult.urgency] || 'border-white/20 bg-white/5 text-white/70'}`}>
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${URGENCY_COLORS[incident.urgency] || 'border-white/20 bg-white/5 text-white/70'}`}>
                   <Zap className="h-3 w-3" />
-                  Urgency: {aiResult.urgency}
+                  Urgency: {incident.urgency?.toUpperCase()}
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-1">
-                  <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">People Affected</p>
-                  <p className="text-sm font-bold text-white">
-                    {aiResult.peopleAffected !== null ? aiResult.peopleAffected : '—'}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="rounded-xl border border-red-500/30 bg-red-950/30 p-3 space-y-1">
+                  <div className="flex items-center gap-1 text-red-400">
+                    <Gauge className="h-3.5 w-3.5" />
+                    <p className="text-[10px] font-bold uppercase tracking-wider">Priority Score</p>
+                  </div>
+                  <p className="text-lg font-black text-white">
+                    {incident.priorityScore} <span className="text-xs text-white/50 font-normal">/ 100</span>
                   </p>
                 </div>
+
                 <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-1">
-                  <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Injuries</p>
-                  <p className="text-sm font-bold text-white">
-                    {aiResult.injuries !== null ? aiResult.injuries : '—'}
+                  <p className="text-[10px] font-medium text-white/40 uppercase tracking-wider">People Affected</p>
+                  <p className="text-base font-bold text-white">
+                    {incident.peopleAffected !== null ? incident.peopleAffected : '—'}
                   </p>
                 </div>
+
                 <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-1">
-                  <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">AI Confidence</p>
-                  <p className="text-sm font-bold text-white">
-                    {(aiResult.confidence * 100).toFixed(0)}%
+                  <p className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Injuries</p>
+                  <p className="text-base font-bold text-white">
+                    {incident.injuries !== null ? incident.injuries : '—'}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-1">
+                  <p className="text-[10px] font-medium text-white/40 uppercase tracking-wider">AI Confidence</p>
+                  <p className="text-base font-bold text-white">
+                    {incident.aiConfidence !== undefined ? `${(incident.aiConfidence * 100).toFixed(0)}%` : '—'}
                   </p>
                 </div>
               </div>
 
-              {aiResult.locationClue && (
+              {(incident.location || incident.locationClue) && (
                 <div className="rounded-xl border border-white/10 bg-white/5 p-3 flex items-start gap-2.5">
                   <MapPin className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Location Clue</p>
-                    <p className="text-xs text-white/90 mt-0.5">{aiResult.locationClue}</p>
+                    <p className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Location</p>
+                    <p className="text-xs text-white/90 mt-0.5">
+                      {incident.location || incident.locationClue}
+                    </p>
                   </div>
                 </div>
               )}
 
-              {aiResult.requiredResources && aiResult.requiredResources.length > 0 && (
+              {incident.requiredResources && incident.requiredResources.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Required Resources</p>
+                  <p className="text-[10px] font-medium text-white/40 uppercase tracking-wider">Required Resources</p>
                   <div className="flex flex-wrap gap-2">
-                    {aiResult.requiredResources.map((resource) => (
+                    {incident.requiredResources.map((resource) => (
                       <span
                         key={resource}
                         className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/80"
                       >
-                        {RESOURCE_LABELS[resource] || resource}
+                        {AVAILABLE_RESOURCES.find((r) => r.id === resource)?.label || resource}
                       </span>
                     ))}
                   </div>
                 </div>
               )}
+
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-center">
+                <p className="text-[11px] text-white/60 italic">
+                  "AI-generated assessment. Critical information should be verified by responders."
+                </p>
+              </div>
             </div>
 
             <div className="flex justify-center gap-3">
@@ -281,7 +331,7 @@ export default function ReportEmergency() {
                 <div className="rounded-xl border border-red-500/30 bg-red-950/40 p-3 flex items-start gap-2.5 backdrop-blur-sm">
                   <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs font-semibold text-red-300">Analysis Failed</p>
+                    <p className="text-xs font-semibold text-red-300">Submission Error</p>
                     <p className="text-[11px] text-red-200/70 mt-0.5">{error}</p>
                   </div>
                 </div>
@@ -291,7 +341,7 @@ export default function ReportEmergency() {
                 <label className="text-xs font-bold text-white/90 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                    What is happening? (Natural Language Report)
+                    What is happening? (Free-text Emergency Description)
                   </span>
                   <span className="text-[11px] text-white/40 font-normal">AI-analyzed</span>
                 </label>
@@ -304,52 +354,64 @@ export default function ReportEmergency() {
                   className="w-full rounded-xl border border-white/10 bg-black/40 p-3 text-xs text-white placeholder:text-white/30 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 backdrop-blur-sm"
                 />
                 <p className="text-[11px] text-white/40">
-                  You can write freely in your own words. Gemini AI will extract severity, required resources, and affected count.
+                  Write in plain language. The Gemini AI engine will extract incident category, severity, trapped/affected count, and required emergency gear before database storage.
                 </p>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-white/90">Incident Location / Clues</label>
+                <label className="text-xs font-bold text-white/90">Location / Landmark</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 h-4 w-4 text-white/30" />
                   <input
                     type="text"
-                    required
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Street address, cross streets, or landmark (e.g. Elm Street library)"
+                    placeholder="Street address, cross streets, or landmark (e.g. Vellore bus stand)"
                     className="w-full rounded-xl border border-white/10 bg-black/40 py-2.5 pl-10 pr-3 text-xs text-white placeholder:text-white/30 focus:border-red-500 focus:outline-none backdrop-blur-sm"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-white/90">Urgency Level</label>
-                  <select
-                    value={urgency}
-                    onChange={(e) => setUrgency(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-black/40 py-2.5 px-3 text-xs text-white focus:border-red-500 focus:outline-none backdrop-blur-sm"
-                  >
-                    <option value="CRITICAL">Critical (Life Threatening)</option>
-                    <option value="HIGH">High (Urgent Medical/Rescue)</option>
-                    <option value="MEDIUM">Medium (Supplies / Shelter)</option>
-                    <option value="LOW">Low (Information / Non-urgent)</option>
-                  </select>
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-white/90">Urgency Level</label>
+                <select
+                  value={urgency}
+                  onChange={(e) => setUrgency(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-black/40 py-2.5 px-3 text-xs text-white focus:border-red-500 focus:outline-none backdrop-blur-sm"
+                >
+                  <option value="immediate" className="bg-slate-900 text-white">Immediate (Threat to Life or Major Disaster)</option>
+                  <option value="urgent" className="bg-slate-900 text-white">Urgent (Rapid response required)</option>
+                  <option value="soon" className="bg-slate-900 text-white">Soon (Impending hazard or relief needs)</option>
+                  <option value="routine" className="bg-slate-900 text-white">Routine (Non-critical support / Info)</option>
+                </select>
+              </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-white/90">Estimated People Affected</label>
-                  <div className="relative">
-                    <Users className="absolute left-3 top-3 h-4 w-4 text-white/30" />
-                    <input
-                      type="text"
-                      value={affectedCount}
-                      onChange={(e) => setAffectedCount(e.target.value)}
-                      placeholder="e.g. 5-10 people"
-                      className="w-full rounded-xl border border-white/10 bg-black/40 py-2.5 pl-10 pr-3 text-xs text-white placeholder:text-white/30 focus:border-red-500 focus:outline-none backdrop-blur-sm"
-                    />
-                  </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-white/90 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Layers className="h-3.5 w-3.5 text-blue-400" />
+                    Resource Needs (Optional manual tags)
+                  </span>
+                  <span className="text-[11px] text-white/40 font-normal">Select all that apply</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {AVAILABLE_RESOURCES.map((r) => {
+                    const isSelected = selectedNeeds.includes(r.id);
+                    return (
+                      <button
+                        type="button"
+                        key={r.id}
+                        onClick={() => toggleResource(r.id)}
+                        className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition border ${
+                          isSelected
+                            ? 'border-red-500 bg-red-600/30 text-white shadow-sm'
+                            : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        {r.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -361,7 +423,7 @@ export default function ReportEmergency() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Analyzing with Gemini AI…</span>
+                    <span>Analyzing & Transmitting Emergency Report…</span>
                   </>
                 ) : (
                   <>
@@ -376,12 +438,12 @@ export default function ReportEmergency() {
               <div className="rounded-xl border border-purple-500/20 bg-purple-950/20 p-4 space-y-3 backdrop-blur-sm">
                 <div className="flex items-center gap-2 text-purple-300">
                   <Brain className="h-4 w-4 animate-pulse" />
-                  <span className="text-xs font-semibold">Gemini AI is analyzing your report…</span>
+                  <span className="text-xs font-semibold">Gemini AI analyzing report & scoring priority…</span>
                 </div>
                 <div className="space-y-2">
-                  <div className="h-3 w-3/4 rounded bg-white/5 animate-pulse" />
-                  <div className="h-3 w-1/2 rounded bg-white/5 animate-pulse" />
-                  <div className="h-3 w-2/3 rounded bg-white/5 animate-pulse" />
+                  <div className="h-2.5 w-3/4 rounded bg-white/10 animate-pulse" />
+                  <div className="h-2.5 w-1/2 rounded bg-white/10 animate-pulse" />
+                  <div className="h-2.5 w-2/3 rounded bg-white/10 animate-pulse" />
                 </div>
               </div>
             )}

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   Layers,
@@ -13,17 +14,42 @@ import {
   Truck,
   CheckCircle,
   ArrowUpRight,
-  RefreshCw
+  RefreshCw,
+  Database
 } from 'lucide-react';
 import { useRole, ROLES, ROLE_CONFIG } from '../context/RoleContext';
 import GlobeStudy from '@/components/ui/globe-study';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { currentRole, ROLES } = useRole();
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [realIncidents, setRealIncidents] = useState([]);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
-  // Mock incidents reflecting Day 10-12 data model
+  const fetchIncidents = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/incidents`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setRealIncidents(data.data);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch real incidents:', err.message);
+    } finally {
+      setHasLoaded(true);
+    }
+  };
+
+  useEffect(() => {
+    fetchIncidents();
+  }, []);
+
   const mockIncidents = [
     {
       id: 'INC-8041',
@@ -83,8 +109,9 @@ export default function Dashboard() {
     },
   ];
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
+    await fetchIncidents();
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
@@ -148,6 +175,7 @@ export default function Dashboard() {
           </button>
 
           <button
+            onClick={() => navigate('/report')}
             className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-red-900/30 hover:bg-red-500 transition"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -254,16 +282,38 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Incidents List */}
             <div className="divide-y divide-slate-800/80 mt-2">
-              {mockIncidents
+              {realIncidents.length > 0 && (
+                <div className="py-2 px-2 text-[11px] text-emerald-400 flex items-center gap-1.5 font-medium">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Live MongoDB Database: {realIncidents.length} incident{realIncidents.length > 1 ? 's' : ''} synchronized</span>
+                </div>
+              )}
+              {(realIncidents.length > 0
+                ? realIncidents.map((inc) => ({
+                    id: (inc._id || inc.id).slice(-6).toUpperCase(),
+                    title: inc.summary || `${inc.category} emergency reported`,
+                    type: inc.category,
+                    location: inc.location || inc.locationClue || 'Location not specified',
+                    severity: (inc.severity || 'medium').toUpperCase(),
+                    urgency: (inc.urgency || 'soon').toUpperCase(),
+                    priorityScore: inc.priorityScore || 0,
+                    affected: inc.peopleAffected !== null && inc.peopleAffected !== undefined ? `${inc.peopleAffected} people` : 'Unspecified',
+                    needs: inc.requiredResources || [],
+                    aiConfidence: inc.aiConfidence !== undefined ? `${(inc.aiConfidence * 100).toFixed(0)}%` : '—',
+                    status: (inc.status || 'reported').replace('_', ' ').toUpperCase(),
+                    time: inc.createdAt ? new Date(inc.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+                    isReal: true,
+                  }))
+                : mockIncidents
+              )
                 .filter((inc) => activeFilter === 'ALL' || inc.severity === activeFilter)
                 .map((inc) => (
                   <div key={inc.id} className="py-3.5 space-y-2 group hover:bg-slate-800/20 px-2 rounded-lg transition">
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-[10px] text-slate-400 font-semibold">{inc.id}</span>
+                          <span className="font-mono text-[10px] text-slate-400 font-semibold">INC-{inc.id}</span>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${inc.severity === 'CRITICAL'
                               ? 'bg-red-950/80 text-red-400 border-red-800/50'
                               : inc.severity === 'HIGH'
@@ -273,6 +323,16 @@ export default function Dashboard() {
                             {inc.severity}
                           </span>
                           <span className="text-[10px] text-slate-400">{inc.time}</span>
+                          {inc.status && (
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                              {inc.status}
+                            </span>
+                          )}
+                          {inc.urgency && (
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-950/60 text-purple-300 border border-purple-800/40">
+                              {inc.urgency}
+                            </span>
+                          )}
                         </div>
                         <h3 className="text-xs font-semibold text-white group-hover:text-red-400 transition">
                           {inc.title}
