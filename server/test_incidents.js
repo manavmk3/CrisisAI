@@ -27,6 +27,20 @@ function assert(condition, message) {
   }
 }
 
+async function fetchWithRetry(url, options, maxRetries = 3, delayMs = 10000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const res = await fetch(url, options);
+    if (res.status === 429 || res.status === 503) {
+      console.log(`     ⏳ Received HTTP ${res.status} (Gemini busy) — retrying in ${delayMs / 1000}s (attempt ${attempt}/${maxRetries})...`);
+      await new Promise((r) => setTimeout(r, delayMs));
+      delayMs = Math.min(delayMs * 1.5, 25000);
+      continue;
+    }
+    return res;
+  }
+  return fetch(url, options);
+}
+
 async function runTests() {
   console.log('========================================================');
   console.log('🚀 STARTING DAY 11 INCIDENT CRUD & WORKFLOW TESTS');
@@ -106,7 +120,7 @@ async function runTests() {
 
     console.log('\n[TEST 5, 6, 7] Valid report submission -> AI Extraction -> Priority Score -> Incident Saved');
     const validReport = 'A major fire has erupted on the 3rd floor of a commercial plaza near Vellore bus stand. About 10 people are trapped inside and 4 have burns and injuries. Ambulances and fire rescue are urgently required!';
-    const res5 = await fetch(BASE_URL, {
+    const res5 = await fetchWithRetry(BASE_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

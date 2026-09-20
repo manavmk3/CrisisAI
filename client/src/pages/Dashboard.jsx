@@ -32,11 +32,14 @@ export default function Dashboard() {
 
   const fetchIncidents = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/incidents`);
+      const res = await fetch(`${API_BASE_URL}/incidents?sort=priority`);
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
-          setRealIncidents(data.data);
+          const sorted = [...data.data].sort(
+            (a, b) => (Number(b.priorityScore) || 0) - (Number(a.priorityScore) || 0)
+          );
+          setRealIncidents(sorted);
         }
       }
     } catch (err) {
@@ -205,7 +208,11 @@ export default function Dashboard() {
             <AlertTriangle className="h-4 w-4 text-red-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">4</span>
+            <span className="text-3xl font-extrabold text-white">
+              {realIncidents.length > 0
+                ? realIncidents.filter((i) => (i.severity || '').toLowerCase() === 'critical').length
+                : 4}
+            </span>
             <span className="text-xs text-red-400 font-semibold">Immediate Action</span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">Calculated Priority &gt; 85/100</p>
@@ -217,7 +224,11 @@ export default function Dashboard() {
             <Cpu className="h-4 w-4 text-purple-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">93.8%</span>
+            <span className="text-3xl font-extrabold text-white">
+              {realIncidents.length > 0
+                ? `${(realIncidents.reduce((acc, i) => acc + (typeof i.aiConfidence === 'number' ? i.aiConfidence : 0.85), 0) / realIncidents.length * 100).toFixed(1)}%`
+                : '93.8%'}
+            </span>
             <span className="text-xs text-emerald-400 font-semibold">+1.2% this week</span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">Gemini 1.5 Flash structured parse</p>
@@ -290,7 +301,9 @@ export default function Dashboard() {
                 </div>
               )}
               {(realIncidents.length > 0
-                ? realIncidents.map((inc) => ({
+                ? [...realIncidents]
+                    .sort((a, b) => (Number(b.priorityScore) || 0) - (Number(a.priorityScore) || 0))
+                    .map((inc) => ({
                     id: (inc._id || inc.id).slice(-6).toUpperCase(),
                     title: inc.summary || `${inc.category} emergency reported`,
                     type: inc.category,

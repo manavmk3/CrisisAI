@@ -142,8 +142,16 @@ export const createIncident = async (req, res) => {
 
 export const getIncidents = async (req, res) => {
   try {
+    const { sort } = req.query;
+    let sortOptions = { priorityScore: -1, createdAt: -1 };
+    if (sort === 'date' || sort === 'createdAt' || sort === 'newest') {
+      sortOptions = { createdAt: -1 };
+    } else if (sort === 'priority') {
+      sortOptions = { priorityScore: -1, createdAt: -1 };
+    }
+
     const incidents = await Incident.find()
-      .sort({ createdAt: -1 })
+      .sort(sortOptions)
       .populate('reporter', 'name email role');
 
     return res.status(200).json({

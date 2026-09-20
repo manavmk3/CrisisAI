@@ -71,13 +71,34 @@ function classifyGeminiError(err) {
   );
 }
 
-async function callGemini(model, prompt) {
-  try {
-    const result = await model.generateContent(prompt);
-    return result.response.text();
-  } catch (err) {
-    throw classifyGeminiError(err);
+const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-3.6-flash'];
+
+async function callGemini(genAI, prompt) {
+  let lastErr = null;
+
+  for (const modelName of GEMINI_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    } catch (err) {
+      lastErr = err;
+      const msg = err.message || '';
+      if (
+        msg.includes('429') ||
+        msg.includes('quota') ||
+        msg.includes('503') ||
+        msg.includes('RATE_LIMIT') ||
+        msg.includes('RESOURCE_EXHAUSTED') ||
+        msg.includes('high demand')
+      ) {
+        continue;
+      }
+      throw classifyGeminiError(err);
+    }
   }
+
+  throw classifyGeminiError(lastErr);
 }
 
 function parseAndValidate(rawText) {
@@ -95,9 +116,8 @@ export async function analyzeReport(reportText) {
   const prompt = buildIncidentAnalysisPrompt(reportText);
 
   const genAI = getGeminiClient();
-  const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
-  const rawText = await callGemini(model, prompt);
+  const rawText = await callGemini(genAI, prompt);
   const attempt1 = parseAndValidate(rawText);
 
   if (attempt1.valid) {
@@ -118,7 +138,7 @@ export async function analyzeReport(reportText) {
 
   let retryRawText;
   try {
-    retryRawText = await callGemini(model, correctionPromptText);
+    retryRawText = await callGemini(genAI, correctionPromptText);
   } catch (err) {
     logManualReviewFallback(2);
     return {
