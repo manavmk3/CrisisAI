@@ -6,6 +6,11 @@ import {
   URGENCY_LEVELS,
   REQUIRED_RESOURCES,
 } from '../services/aiIncidentSchema.js';
+import {
+  findTextDuplicateCandidates,
+  ACTIVE_INCIDENT_STATUSES,
+  RECENT_INCIDENTS_LIMIT,
+} from '../services/duplicateDetection.service.js';
 
 export const createIncident = async (req, res) => {
   try {
@@ -100,6 +105,20 @@ export const createIncident = async (req, res) => {
         ? location.trim()
         : aiData.locationClue || '';
 
+    let duplicateCandidates = [];
+    try {
+      const recentOpenIncidents = await Incident.find({
+        status: { $in: ACTIVE_INCIDENT_STATUSES },
+      })
+        .sort({ createdAt: -1 })
+        .limit(RECENT_INCIDENTS_LIMIT)
+        .lean();
+
+      duplicateCandidates = findTextDuplicateCandidates(trimmedReport, recentOpenIncidents);
+    } catch (dupErr) {
+      console.error('[Incident Controller] Non-blocking duplicate detection error:', dupErr.message);
+    }
+
     const incident = new Incident({
       report: trimmedReport,
       reporter: req.user._id,
@@ -123,6 +142,7 @@ export const createIncident = async (req, res) => {
     return res.status(201).json({
       success: true,
       data: incident,
+      duplicateCandidates,
     });
   } catch (err) {
     if (err instanceof AIServiceError) {
