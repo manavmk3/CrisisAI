@@ -8,8 +8,11 @@ import {
 } from '../services/aiIncidentSchema.js';
 import {
   findTextDuplicateCandidates,
+  findMultiSignalDuplicates,
   ACTIVE_INCIDENT_STATUSES,
   RECENT_INCIDENTS_LIMIT,
+  DUPLICATE_TIME_WINDOW_HOURS,
+  isValidCoordinate,
 } from '../services/duplicateDetection.service.js';
 
 export const createIncident = async (req, res) => {
@@ -21,7 +24,7 @@ export const createIncident = async (req, res) => {
       });
     }
 
-    const { report, location, urgency, needs } = req.body;
+    const { report, location, urgency, needs, coordinates, latitude, longitude } = req.body;
 
     if (report === undefined || report === null) {
       return res.status(400).json({
@@ -77,6 +80,17 @@ export const createIncident = async (req, res) => {
       }
     }
 
+    // Resolve coordinates if provided safely
+    let resolvedCoordinates = { latitude: null, longitude: null };
+    const rawCoords = coordinates || (latitude !== undefined && longitude !== undefined ? { latitude, longitude } : null);
+    if (rawCoords && typeof rawCoords === 'object') {
+      const parsedLat = typeof rawCoords.latitude === 'string' && rawCoords.latitude.trim() !== '' ? Number(rawCoords.latitude) : rawCoords.latitude;
+      const parsedLon = typeof rawCoords.longitude === 'string' && rawCoords.longitude.trim() !== '' ? Number(rawCoords.longitude) : rawCoords.longitude;
+      if (isValidCoordinate(parsedLat, parsedLon)) {
+        resolvedCoordinates = { latitude: parsedLat, longitude: parsedLon };
+      }
+    }
+
     const aiResult = await analyzeReport(trimmedReport);
 
     if (aiResult.status === 'needs_manual_review') {
@@ -105,16 +119,34 @@ export const createIncident = async (req, res) => {
         ? location.trim()
         : aiData.locationClue || '';
 
+    let duplicateResult = {
+      likelyDuplicate: false,
+      possibleDuplicateOf: null,
+      duplicateReason: null,
+      candidates: [],
+    };
     let duplicateCandidates = [];
+
     try {
+      const windowStartTime = new Date(Date.now() - DUPLICATE_TIME_WINDOW_HOURS * 60 * 60 * 1000);
       const recentOpenIncidents = await Incident.find({
         status: { $in: ACTIVE_INCIDENT_STATUSES },
+        createdAt: { $gte: windowStartTime },
       })
         .sort({ createdAt: -1 })
         .limit(RECENT_INCIDENTS_LIMIT)
         .lean();
 
-      duplicateCandidates = findTextDuplicateCandidates(trimmedReport, recentOpenIncidents);
+      duplicateResult = findMultiSignalDuplicates(
+        {
+          report: trimmedReport,
+          coordinates: resolvedCoordinates,
+          createdAt: new Date(),
+        },
+        recentOpenIncidents
+      );
+
+      duplicateCandidates = duplicateResult.candidates || [];
     } catch (dupErr) {
       console.error('[Incident Controller] Non-blocking duplicate detection error:', dupErr.message);
     }
@@ -129,12 +161,14 @@ export const createIncident = async (req, res) => {
       urgency: aiData.urgency,
       location: resolvedLocation,
       locationClue: aiData.locationClue,
+      coordinates: resolvedCoordinates,
       requiredResources: finalResources,
       summary: aiData.summary,
       aiConfidence: aiData.confidence,
       priorityScore: score,
       priorityBreakdown: breakdown,
       status: 'reported',
+      possibleDuplicateOf: duplicateResult.likelyDuplicate ? duplicateResult.possibleDuplicateOf : null,
     });
 
     await incident.save();
@@ -142,6 +176,9 @@ export const createIncident = async (req, res) => {
     return res.status(201).json({
       success: true,
       data: incident,
+      likelyDuplicate: duplicateResult.likelyDuplicate,
+      possibleDuplicateOf: duplicateResult.possibleDuplicateOf,
+      duplicateReason: duplicateResult.duplicateReason,
       duplicateCandidates,
     });
   } catch (err) {
@@ -172,7 +209,8 @@ export const getIncidents = async (req, res) => {
 
     const incidents = await Incident.find()
       .sort(sortOptions)
-      .populate('reporter', 'name email role');
+      .populate('reporter', 'name email role')
+      .populate('possibleDuplicateOf', 'summary category severity priorityScore status createdAt location coordinates');
 
     return res.status(200).json({
       success: true,
@@ -199,7 +237,9 @@ export const getIncidentById = async (req, res) => {
       });
     }
 
-    const incident = await Incident.findById(id).populate('reporter', 'name email role');
+    const incident = await Incident.findById(id)
+      .populate('reporter', 'name email role')
+      .populate('possibleDuplicateOf', 'summary category severity priorityScore status createdAt location coordinates');
 
     if (!incident) {
       return res.status(404).json({
@@ -247,7 +287,7 @@ export const updateIncident = async (req, res) => {
       });
     }
 
-    const { status, location, urgency, requiredResources, needs } = req.body;
+    const { status, location, urgency, requiredResources, needs, coordinates, latitude, longitude } = req.body;
 
     if (status !== undefined) {
       if (!INCIDENT_STATUSES.includes(status)) {
@@ -267,6 +307,17 @@ export const updateIncident = async (req, res) => {
         });
       }
       incident.location = location.trim();
+    }
+
+    if (coordinates !== undefined || (latitude !== undefined && longitude !== undefined)) {
+      const rawCoords = coordinates || { latitude, longitude };
+      if (rawCoords && typeof rawCoords === 'object') {
+        const parsedLat = typeof rawCoords.latitude === 'string' && rawCoords.latitude.trim() !== '' ? Number(rawCoords.latitude) : rawCoords.latitude;
+        const parsedLon = typeof rawCoords.longitude === 'string' && rawCoords.longitude.trim() !== '' ? Number(rawCoords.longitude) : rawCoords.longitude;
+        if (isValidCoordinate(parsedLat, parsedLon)) {
+          incident.coordinates = { latitude: parsedLat, longitude: parsedLon };
+        }
+      }
     }
 
     if (urgency !== undefined) {

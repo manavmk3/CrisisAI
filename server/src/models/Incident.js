@@ -72,6 +72,20 @@ const incidentSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    coordinates: {
+      latitude: {
+        type: Number,
+        default: null,
+        min: [-90, 'Latitude must be between -90 and 90'],
+        max: [90, 'Latitude must be between -90 and 90'],
+      },
+      longitude: {
+        type: Number,
+        default: null,
+        min: [-180, 'Longitude must be between -180 and 180'],
+        max: [180, 'Longitude must be between -180 and 180'],
+      },
+    },
     requiredResources: [
       {
         type: String,
@@ -115,6 +129,12 @@ const incidentSchema = new mongoose.Schema(
         message: '{VALUE} is not a valid incident status',
       },
       default: 'reported',
+      index: true,
+    },
+    possibleDuplicateOf: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Incident',
+      default: null,
       index: true,
     },
   },

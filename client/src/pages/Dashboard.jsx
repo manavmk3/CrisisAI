@@ -252,10 +252,12 @@ export default function Dashboard() {
             <Sparkles className="h-4 w-4 text-amber-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">12</span>
-            <span className="text-xs text-amber-400 font-semibold">Saved dispatch cycles</span>
+            <span className="text-3xl font-extrabold text-white">
+              {realIncidents.length > 0 ? realIncidents.filter((i) => i.possibleDuplicateOf).length : 12}
+            </span>
+            <span className="text-xs text-amber-400 font-semibold">Review required</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">Text + Geo + Time similarity</p>
+          <p className="mt-1 text-[11px] text-slate-400">Text + Geo + Time multi-signal</p>
         </div>
       </div>
 
@@ -316,6 +318,7 @@ export default function Dashboard() {
                     aiConfidence: inc.aiConfidence !== undefined ? `${(inc.aiConfidence * 100).toFixed(0)}%` : '—',
                     status: (inc.status || 'reported').replace('_', ' ').toUpperCase(),
                     time: inc.createdAt ? new Date(inc.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+                    possibleDuplicateOf: inc.possibleDuplicateOf || null,
                     isReal: true,
                   }))
                 : mockIncidents
@@ -325,7 +328,7 @@ export default function Dashboard() {
                   <div key={inc.id} className="py-3.5 space-y-2 group hover:bg-slate-800/20 px-2 rounded-lg transition">
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-[10px] text-slate-400 font-semibold">INC-{inc.id}</span>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${inc.severity === 'CRITICAL'
                               ? 'bg-red-950/80 text-red-400 border-red-800/50'
@@ -344,6 +347,12 @@ export default function Dashboard() {
                           {inc.urgency && (
                             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-950/60 text-purple-300 border border-purple-800/40">
                               {inc.urgency}
+                            </span>
+                          )}
+                          {inc.possibleDuplicateOf && (
+                            <span className="text-[9px] font-medium px-2 py-0.5 rounded bg-amber-950/70 text-amber-300 border border-amber-800/50 flex items-center gap-1">
+                              <AlertTriangle className="h-2.5 w-2.5 text-amber-400" />
+                              Possible duplicate — review required
                             </span>
                           )}
                         </div>

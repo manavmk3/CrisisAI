@@ -73,9 +73,38 @@ export default function ReportEmergency() {
   const [aiStatus, setAiStatus] = useState(null);
   const [error, setError] = useState('');
 
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [likelyDuplicate, setLikelyDuplicate] = useState(false);
+  const [duplicateReason, setDuplicateReason] = useState(null);
+  const [geoLocating, setGeoLocating] = useState(false);
+  const [geoMessage, setGeoMessage] = useState('');
+
   const toggleResource = (id) => {
     setSelectedNeeds((prev) =>
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
+    );
+  };
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      setGeoMessage('Geolocation is not supported by your browser.');
+      return;
+    }
+    setGeoLocating(true);
+    setGeoMessage('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatitude(pos.coords.latitude.toFixed(6));
+        setLongitude(pos.coords.longitude.toFixed(6));
+        setGeoLocating(false);
+        setGeoMessage('GPS coordinates acquired.');
+      },
+      (err) => {
+        setGeoLocating(false);
+        setGeoMessage(`Location permission denied or unavailable: ${err.message}`);
+      },
+      { timeout: 10000 }
     );
   };
 
@@ -84,6 +113,8 @@ export default function ReportEmergency() {
     setError('');
     setIncident(null);
     setAiStatus(null);
+    setLikelyDuplicate(false);
+    setDuplicateReason(null);
 
     if (!token) {
       setError('You must be logged in to submit an emergency incident report.');
@@ -98,18 +129,28 @@ export default function ReportEmergency() {
     setIsSubmitting(true);
 
     try {
+      const payload = {
+        report: description.trim(),
+        location: location.trim(),
+        urgency: urgency.toLowerCase(),
+        needs: selectedNeeds,
+      };
+
+      if (latitude.trim() !== '' && longitude.trim() !== '') {
+        const latNum = parseFloat(latitude);
+        const lonNum = parseFloat(longitude);
+        if (!isNaN(latNum) && !isNaN(lonNum)) {
+          payload.coordinates = { latitude: latNum, longitude: lonNum };
+        }
+      }
+
       const response = await fetch(`${API_BASE_URL}/incidents`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          report: description.trim(),
-          location: location.trim(),
-          urgency: urgency.toLowerCase(),
-          needs: selectedNeeds,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -126,6 +167,8 @@ export default function ReportEmergency() {
 
       setAiStatus('analyzed');
       setIncident(data.data);
+      setLikelyDuplicate(data.likelyDuplicate || false);
+      setDuplicateReason(data.duplicateReason || null);
       setIsSuccess(true);
     } catch (err) {
       setError(err.message || 'An unexpected error occurred. Please try again.');
@@ -140,6 +183,11 @@ export default function ReportEmergency() {
     setAiStatus(null);
     setDescription('');
     setLocation('');
+    setLatitude('');
+    setLongitude('');
+    setLikelyDuplicate(false);
+    setDuplicateReason(null);
+    setGeoMessage('');
     setUrgency('immediate');
     setSelectedNeeds([]);
     setError('');
@@ -218,6 +266,23 @@ export default function ReportEmergency() {
                   {incident.status ? incident.status.toUpperCase() : 'REPORTED'}
                 </span>
               </div>
+
+              {likelyDuplicate && (
+                <div className="rounded-xl border border-amber-500/40 bg-amber-950/40 p-3.5 space-y-1.5 backdrop-blur-sm">
+                  <div className="flex items-center gap-2 text-amber-300 font-semibold text-xs">
+                    <AlertCircle className="h-4 w-4 text-amber-400 shrink-0" />
+                    <span>Possible duplicate detected — requires human verification.</span>
+                  </div>
+                  {duplicateReason && (
+                    <p className="text-[11px] text-amber-200/80 leading-relaxed pl-6">
+                      Similarity: {(duplicateReason.textSimilarity * 100).toFixed(1)}% | Distance: {duplicateReason.distanceKm !== null ? `${duplicateReason.distanceKm} km` : 'N/A'} | Time difference: {duplicateReason.timeDifferenceHours !== null ? `${duplicateReason.timeDifferenceHours}h` : 'N/A'}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-amber-300/60 pl-6">
+                    Incident preserved and recorded. Flagged for human dispatcher review without automatic modification or merging.
+                  </p>
+                </div>
+              )}
 
               <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                 <p className="text-xs font-medium text-white/90 leading-relaxed">
@@ -370,6 +435,51 @@ export default function ReportEmergency() {
                     className="w-full rounded-xl border border-white/10 bg-black/40 py-2.5 pl-10 pr-3 text-xs text-white placeholder:text-white/30 focus:border-red-500 focus:outline-none backdrop-blur-sm"
                   />
                 </div>
+              </div>
+
+              {/* Optional Coordinates Section */}
+              <div className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-white/90 flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-blue-400" />
+                    Coordinates (Optional / GPS / Test)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleGetLocation}
+                    disabled={geoLocating}
+                    className="text-[11px] font-medium text-blue-400 hover:text-blue-300 underline disabled:opacity-50"
+                  >
+                    {geoLocating ? 'Detecting GPS...' : 'Use Current GPS'}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-white/50 block mb-1">Latitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={latitude}
+                      onChange={(e) => setLatitude(e.target.value)}
+                      placeholder="e.g. 12.9165"
+                      className="w-full rounded-lg border border-white/10 bg-black/40 py-1.5 px-2.5 text-xs text-white placeholder:text-white/30 focus:border-red-500 focus:outline-none backdrop-blur-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-white/50 block mb-1">Longitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={longitude}
+                      onChange={(e) => setLongitude(e.target.value)}
+                      placeholder="e.g. 79.1325"
+                      className="w-full rounded-lg border border-white/10 bg-black/40 py-1.5 px-2.5 text-xs text-white placeholder:text-white/30 focus:border-red-500 focus:outline-none backdrop-blur-sm"
+                    />
+                  </div>
+                </div>
+                {geoMessage && (
+                  <p className="text-[10px] text-blue-300/80">{geoMessage}</p>
+                )}
               </div>
 
               <div className="space-y-1.5">
