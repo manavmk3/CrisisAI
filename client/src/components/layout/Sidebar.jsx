@@ -41,11 +41,13 @@ export default function Sidebar({ isOpen, onClose }) {
       { label: 'Command Overview', path: '/dashboard', icon: Layers },
       { label: 'Priority Incident Triage', path: '/dashboard?view=triage', icon: AlertTriangle, badge: 'Live AI' },
       { label: 'Live Crisis Map', path: '/dashboard?view=map', icon: MapPin },
+      { label: 'Resource Inventory', path: '/resources', icon: Truck },
       { label: 'Resource Allocation', path: '/dashboard?view=resources', icon: Truck },
       { label: 'Incident Verification', path: '/dashboard?view=verify', icon: Shield },
     ],
     [ROLES.ADMIN]: [
       { label: 'Operations Overview', path: '/dashboard', icon: Layers },
+      { label: 'Resource Inventory', path: '/resources', icon: Truck },
       { label: 'User & Agency Directory', path: '/dashboard?view=users', icon: Users },
       { label: 'AI Analytics & Latency', path: '/dashboard?view=ai-metrics', icon: Cpu },
       { label: 'Priority Scoring Engine', path: '/dashboard?view=scoring-config', icon: Sliders },

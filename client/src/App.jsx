@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ReportEmergency from './pages/ReportEmergency';
+import Resources from './pages/Resources';
 import NotFound from './pages/NotFound';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
               <Route path="register" element={<Register />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="report" element={<ReportEmergency />} />
+              <Route path="resources" element={<Resources />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
