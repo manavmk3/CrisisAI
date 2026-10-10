@@ -3,6 +3,8 @@ import Incident, { INCIDENT_STATUSES } from '../models/Incident.js';
 import { analyzeReport, AIServiceError } from '../services/aiService.js';
 import { calculatePriorityScore } from '../services/priorityScore.js';
 import {
+  CATEGORIES,
+  SEVERITY_LEVELS,
   URGENCY_LEVELS,
   REQUIRED_RESOURCES,
 } from '../services/aiIncidentSchema.js';
@@ -168,6 +170,7 @@ export const createIncident = async (req, res) => {
       priorityScore: score,
       priorityBreakdown: breakdown,
       status: 'reported',
+      verificationState: duplicateResult.likelyDuplicate ? 'needs_review' : 'verified',
       possibleDuplicateOf: duplicateResult.likelyDuplicate ? duplicateResult.possibleDuplicateOf : null,
     });
 
@@ -199,7 +202,67 @@ export const createIncident = async (req, res) => {
 
 export const getIncidents = async (req, res) => {
   try {
-    const { sort } = req.query;
+    const { sort, status, category, severity, verification, verificationState } = req.query;
+
+    const query = {};
+
+    if (status !== undefined && status !== null && status !== '') {
+      if (!INCIDENT_STATUSES.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status filter: "${status}". Allowed: ${INCIDENT_STATUSES.join(', ')}`,
+        });
+      }
+      query.status = status;
+    }
+
+    if (category !== undefined && category !== null && category !== '') {
+      if (!CATEGORIES.includes(category)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid category filter: "${category}". Allowed: ${CATEGORIES.join(', ')}`,
+        });
+      }
+      query.category = category;
+    }
+
+    if (severity !== undefined && severity !== null && severity !== '') {
+      const lowerSev = typeof severity === 'string' ? severity.toLowerCase() : '';
+      if (!SEVERITY_LEVELS.includes(lowerSev)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid severity filter: "${severity}". Allowed: ${SEVERITY_LEVELS.join(', ')}`,
+        });
+      }
+      query.severity = lowerSev;
+    }
+
+    const verParam = verification || verificationState;
+    if (verParam !== undefined && verParam !== null && verParam !== '') {
+      const lowerVer = typeof verParam === 'string' ? verParam.toLowerCase() : '';
+      const allowedVer = ['verified', 'needs_review', 'requires_review'];
+      if (!allowedVer.includes(lowerVer)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid verification filter: "${verParam}". Allowed: ${allowedVer.join(', ')}`,
+        });
+      }
+
+      if (lowerVer === 'needs_review' || lowerVer === 'requires_review') {
+        query.$or = [
+          { verificationState: 'needs_review' },
+          { status: 'under_review' },
+          { possibleDuplicateOf: { $ne: null } },
+        ];
+      } else if (lowerVer === 'verified') {
+        query.$and = [
+          { $or: [{ verificationState: 'verified' }, { verificationState: { $exists: false } }] },
+          { status: { $ne: 'under_review' } },
+          { possibleDuplicateOf: null },
+        ];
+      }
+    }
+
     let sortOptions = { priorityScore: -1, createdAt: -1 };
     if (sort === 'date' || sort === 'createdAt' || sort === 'newest') {
       sortOptions = { createdAt: -1 };
@@ -207,7 +270,7 @@ export const getIncidents = async (req, res) => {
       sortOptions = { priorityScore: -1, createdAt: -1 };
     }
 
-    const incidents = await Incident.find()
+    const incidents = await Incident.find(query)
       .sort(sortOptions)
       .populate('reporter', 'name email role')
       .populate('possibleDuplicateOf', 'summary category severity priorityScore status createdAt location coordinates');
@@ -248,9 +311,19 @@ export const getIncidentById = async (req, res) => {
       });
     }
 
+    let referringDuplicates = [];
+    try {
+      referringDuplicates = await Incident.find({ possibleDuplicateOf: incident._id })
+        .select('summary category severity priorityScore status createdAt location coordinates')
+        .lean();
+    } catch (e) {
+      console.warn('[Incident Controller] Referring duplicate lookup non-blocking error:', e.message);
+    }
+
     return res.status(200).json({
       success: true,
       data: incident,
+      referringDuplicates,
     });
   } catch (err) {
     console.error('[Incident Controller] Error getting incident by ID:', err);
@@ -287,7 +360,7 @@ export const updateIncident = async (req, res) => {
       });
     }
 
-    const { status, location, urgency, requiredResources, needs, coordinates, latitude, longitude } = req.body;
+    const { status, verificationState, location, urgency, requiredResources, needs, coordinates, latitude, longitude } = req.body;
 
     if (status !== undefined) {
       if (!INCIDENT_STATUSES.includes(status)) {
@@ -297,6 +370,20 @@ export const updateIncident = async (req, res) => {
         });
       }
       incident.status = status;
+      if (status === 'under_review') {
+        incident.verificationState = 'needs_review';
+      }
+    }
+
+    if (verificationState !== undefined) {
+      const allowedVer = ['verified', 'needs_review'];
+      if (!allowedVer.includes(verificationState)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid verificationState: "${verificationState}". Allowed: ${allowedVer.join(', ')}`,
+        });
+      }
+      incident.verificationState = verificationState;
     }
 
     if (location !== undefined) {

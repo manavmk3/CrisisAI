@@ -131,6 +131,15 @@ const incidentSchema = new mongoose.Schema(
       default: 'reported',
       index: true,
     },
+    verificationState: {
+      type: String,
+      enum: {
+        values: ['verified', 'needs_review'],
+        message: '{VALUE} is not a valid verification state',
+      },
+      default: 'verified',
+      index: true,
+    },
     possibleDuplicateOf: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Incident',
@@ -143,6 +152,9 @@ const incidentSchema = new mongoose.Schema(
     toJSON: {
       transform: (doc, ret) => {
         ret.id = ret._id;
+        if (!ret.verificationState) {
+          ret.verificationState = (ret.status === 'under_review' || ret.possibleDuplicateOf) ? 'needs_review' : 'verified';
+        }
         delete ret.__v;
         return ret;
       },
