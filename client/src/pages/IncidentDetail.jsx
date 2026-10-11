@@ -21,6 +21,7 @@ import {
 import { useRole } from '../context/RoleContext';
 import { useAuth } from '../context/AuthContext';
 import ResourceAllocationModal from '../components/allocations/ResourceAllocationModal';
+import IncidentMap from '../components/IncidentMap';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -348,6 +349,16 @@ export default function IncidentDetail() {
               ) : (
                 <span className="font-mono text-xs text-slate-400">No coordinates provided</span>
               )}
+            </div>
+
+            <div className="pt-1">
+              <IncidentMap
+                incident={incident}
+                height="260px"
+                minHeight="220px"
+                title="Incident Location Map"
+                subtitle="OpenStreetMap Pan & Zoom Foundation"
+              />
             </div>
           </div>
         </div>
