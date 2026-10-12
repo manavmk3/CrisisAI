@@ -336,7 +336,7 @@ export default function Dashboard() {
               <MapPin className="h-3.5 w-3.5" />
               <span>Live Crisis Map</span>
               <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-850 text-slate-300 border border-slate-700">
-                Day 18
+                Day 19
               </span>
             </button>
           </div>
@@ -361,10 +361,10 @@ export default function Dashboard() {
               <div>
                 <h4 className="text-white font-bold text-xs flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-red-500" />
-                  <span>Day 18 Interactive Geospatial Foundation</span>
+                  <span>Day 19 Live Map Markers</span>
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Leaflet pan and zoom controls are active with standard OpenStreetMap attribution. Incidents with verified GPS telemetry are validated. Incident markers and clustering will be enabled in Day 19.
+                  Incident markers are color-coded by severity (critical=red, high=orange, medium=yellow, resolved=gray). Resource markers show operational status (available=green, deployed=orange, maintenance=gray). Toggle layers via the controls above the map. Click any marker for a detail popup.
                 </p>
               </div>
               <button
@@ -386,7 +386,7 @@ export default function Dashboard() {
                     Live Crisis Geospatial Map
                   </h2>
                   <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-red-950/80 text-red-400 border border-red-800/50">
-                    Day 18 Foundation
+                    Day 19 Markers
                   </span>
                 </div>
                 <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
@@ -399,7 +399,7 @@ export default function Dashboard() {
                 height="380px"
                 minHeight="280px"
                 title="CrisisAI Live Operations Map"
-                subtitle="OpenStreetMap Leaflet Pan & Zoom Engine (Incident markers coming in Day 19)"
+                subtitle="Incident & Resource markers color-coded by severity/status"
               />
             </div>
 
