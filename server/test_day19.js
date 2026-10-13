@@ -1,3 +1,18 @@
+﻿/**
+ * test_day19.js — Day 19 Backend Regression & Marker Data Suite
+ *
+ * Tests:
+ *   1. Static file checks (IncidentMap.jsx, IncidentMap.test.jsx)
+ *   2. Coordinate validation library
+ *   3. Incident marker color logic (imported from coordinateValidation.js)
+ *   4. Resource API regression
+ *   5. Incident API regression (CRUD, filtering)
+ *   6. Allocation workflow regression
+ *   7. Day 17 dashboard filter regression
+ *   8. Incident detail route regression
+ *   9. Shelter / responder model boundary assertions
+ */
+
 import dns from "dns";
 import fs from "fs";
 import path from "path";
@@ -37,7 +52,7 @@ async function req(method, pathStr, body, token) {
   if (body !== undefined) opts.body = JSON.stringify(body);
   const res = await fetch(url, opts);
   let data = null;
-  try { data = await res.json(); } catch (_) {}
+  try { data = await res.json(); } catch (_) { }
   return { status: res.status, data: data };
 }
 
@@ -46,6 +61,7 @@ async function runDay19Tests() {
   console.log("\uD83D\uDDFA\uFE0F DAY 19: MAP MARKERS & DETAIL POPUPS — BACKEND REGRESSION SUITE");
   console.log("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n");
 
+  /* ── SECTION 1: Static file checks ── */
   console.log("[SECTION 1] Static File & Component Checks");
 
   const incidentMapPath = path.join(rootDir, "client", "src", "components", "IncidentMap.jsx");
@@ -71,7 +87,9 @@ async function runDay19Tests() {
   assert(mapContent.includes("No Fabricated GPS"), "No-fabrication notice preserved from Day 18");
   assert(mapContent.includes("Day 19"), "Day 19 label present in component");
 
+  // No Shelter model
   assert(!mapContent.includes("ShelterModel") && !mapContent.includes("Shelter.js"), "No fabricated Shelter model imported");
+  // No Responder model
   assert(!mapContent.includes("ResponderModel") && !mapContent.includes("Responder.js"), "No fabricated Responder model imported");
 
   const testPath = path.join(rootDir, "client", "src", "components", "IncidentMap.test.jsx");
@@ -82,6 +100,7 @@ async function runDay19Tests() {
   assert(testContent.includes("INCIDENT_SEVERITY_COLORS"), "Tests cover severity color mapping");
   assert(testContent.includes("RESOURCE_STATUS_COLORS"), "Tests cover resource status color mapping");
 
+  /* ── SECTION 2: Coordinate validation regression ── */
   console.log("\n[SECTION 2] Coordinate Validation Regression");
 
   const coordUtilPath = path.join(rootDir, "client", "src", "utils", "coordinateValidation.js");
@@ -107,6 +126,7 @@ async function runDay19Tests() {
   assert(extValidGPS.hasCoordinates === true, "Valid incident coords recognized");
   assert(extValidGPS.latitude === 13.0827 && extValidGPS.longitude === 80.2707, "Extracted coords match input");
 
+  /* ── SECTION 3: Server startup & MongoDB ── */
   console.log("\n[SECTION 3] Backend API & MongoDB Connection");
   let serverInstance = null;
   try {
@@ -118,7 +138,7 @@ async function runDay19Tests() {
 
   try {
     if (config.mongoUri && config.mongoUri.startsWith("mongodb+srv://")) {
-      try { dns.setServers(["8.8.8.8", "1.1.1.1"]); } catch (_) {}
+      try { dns.setServers(["8.8.8.8", "1.1.1.1"]); } catch (_) { }
     }
     const connPromise = mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 5000 });
     await Promise.race([
@@ -132,12 +152,14 @@ async function runDay19Tests() {
     process.exit(1);
   }
 
+  /* ── SECTION 4: Incident API regression ── */
   console.log("[SECTION 4] Incident API Regression");
   const incList = await req("GET", "/incidents?sort=priority");
   assert(incList.status === 200, "GET /api/incidents returns HTTP 200");
   assert(incList.data && incList.data.success === true, "GET /api/incidents returns success=true");
   assert(Array.isArray(incList.data && incList.data.data), "GET /api/incidents data is an array");
 
+  // Filter regression (Day 17)
   const incStatus = await req("GET", "/incidents?status=reported");
   assert(incStatus.status === 200, "GET /api/incidents?status=reported returns 200");
 
@@ -156,6 +178,7 @@ async function runDay19Tests() {
     assert(true, "Incident sort check skipped (insufficient records)");
   }
 
+  /* ── SECTION 5: Incident detail route regression ── */
   console.log("\n[SECTION 5] Incident Detail Route Regression");
   if (incList.data && Array.isArray(incList.data.data) && incList.data.data.length > 0) {
     const firstId = incList.data.data[0]._id || incList.data.data[0].id;
@@ -164,6 +187,7 @@ async function runDay19Tests() {
     assert(detail.data && detail.data.success === true, "Incident detail response has success=true");
     assert(detail.data && detail.data.data && detail.data.data._id, "Incident detail data has _id");
 
+    // Check required popup fields are present in API response
     const inc = detail.data.data;
     assert("summary" in inc, "Incident detail has summary field (for popup)");
     assert("category" in inc, "Incident detail has category field (for popup)");
@@ -181,12 +205,14 @@ async function runDay19Tests() {
     assert(true, "Skipped (no incidents)");
   }
 
+  /* ── SECTION 6: Resource API regression ── */
   console.log("\n[SECTION 6] Resource API Regression (Day 15 CRUD)");
   const resList = await req("GET", "/resources");
   assert(resList.status === 200, "GET /api/resources returns 200");
   assert(resList.data && resList.data.success === true, "GET /api/resources returns success=true");
   assert(Array.isArray(resList.data && resList.data.data), "GET /api/resources data is an array");
 
+  // Check resource model fields for popup
   if (resList.data && Array.isArray(resList.data.data) && resList.data.data.length > 0) {
     const res = resList.data.data[0];
     assert("name" in res, "Resource has name field (for popup)");
@@ -194,9 +220,11 @@ async function runDay19Tests() {
     assert("status" in res, "Resource has status field (for popup)");
     assert("quantity" in res, "Resource has quantity field (for popup)");
     assert("availableQuantity" in res || res.availableQuantity === undefined, "Resource has availableQuantity or null");
+    // Resources have top-level lat/lng (not nested coordinates)
     assert("latitude" in res, "Resource has top-level latitude field");
     assert("longitude" in res, "Resource has top-level longitude field");
 
+    // Verify status is from allowed vocabulary
     const validStatuses = ["available", "deployed", "maintenance"];
     assert(validStatuses.includes(res.status), "Resource status is from allowed vocabulary: " + res.status);
   } else {
@@ -204,6 +232,7 @@ async function runDay19Tests() {
     for (let i = 0; i < 8; i++) assert(true, "Resource popup field check skipped (no resources)");
   }
 
+  /* ── SECTION 7: Allocation workflow regression (Day 16) ── */
   console.log("\n[SECTION 7] Allocation Workflow Regression (Day 16)");
   if (incList.data && Array.isArray(incList.data.data) && incList.data.data.length > 0) {
     const firstId = incList.data.data[0]._id || incList.data.data[0].id;
@@ -219,6 +248,7 @@ async function runDay19Tests() {
     assert(true, "Candidates regression skipped (no incidents)");
   }
 
+  /* ── SECTION 8: Shelter / Responder model boundary ── */
   console.log("\n[SECTION 8] Shelter & Responder Model Boundary");
   assert(
     !fs.existsSync(path.join(rootDir, "server", "src", "models", "Shelter.js")),
@@ -229,6 +259,7 @@ async function runDay19Tests() {
     "No dedicated Responder.js model (expected — responders not yet modeled)"
   );
 
+  // Resources of type 'shelter' exist within the Resource model
   const shelterRes = await req("GET", "/resources");
   if (shelterRes.data && Array.isArray(shelterRes.data.data)) {
     const shelterTypeCount = shelterRes.data.data.filter((r) => r.type === "shelter").length;
@@ -248,6 +279,7 @@ async function runDay19Tests() {
     assert(true, "Shelter boundary check skipped (API unavailable)");
   }
 
+  /* ── SECTION 9: Dashboard/Map integration ── */
   console.log("\n[SECTION 9] Dashboard & Map Integration");
   const dashPath = path.join(rootDir, "client", "src", "pages", "Dashboard.jsx");
   const dashContent = fs.readFileSync(dashPath, "utf8");
@@ -260,6 +292,7 @@ async function runDay19Tests() {
   const appContent = fs.readFileSync(appPath, "utf8");
   assert(appContent.includes("incidents/:id"), "App.jsx routes /incidents/:id (incident detail unchanged)");
 
+  /* ── FINAL SUMMARY ── */
   console.log("\n\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
   console.log("\uD83C\uDF89 DAY 19 TEST RESULTS: " + passed + " PASSED, " + failed + " FAILED");
   console.log("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n");
@@ -273,3 +306,4 @@ runDay19Tests().catch((err) => {
   console.error("Unhandled test failure:", err);
   process.exit(1);
 });
+
