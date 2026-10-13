@@ -21,6 +21,7 @@ import {
 import { useRole } from '../context/RoleContext';
 import { useAuth } from '../context/AuthContext';
 import ResourceAllocationModal from '../components/allocations/ResourceAllocationModal';
+import NearbyResourceSearch from '../components/allocations/NearbyResourceSearch';
 import IncidentMap from '../components/IncidentMap';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -50,6 +51,7 @@ export default function IncidentDetail() {
   const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
   const [releasingAllocationId, setReleasingAllocationId] = useState(null);
   const [releaseFeedback, setReleaseFeedback] = useState(null);
+  const [nearbyMapResources, setNearbyMapResources] = useState([]);
 
   const canAllocate = currentRole === ROLES.AUTHORITY || currentRole === ROLES.ADMIN;
 
@@ -354,6 +356,7 @@ export default function IncidentDetail() {
             <div className="pt-1">
               <IncidentMap
                 incident={incident}
+                resources={nearbyMapResources.length > 0 ? nearbyMapResources : undefined}
                 height="260px"
                 minHeight="220px"
                 title="Incident Location Map"
@@ -717,6 +720,12 @@ export default function IncidentDetail() {
           </div>
         )}
       </div>
+
+      <NearbyResourceSearch
+        incident={incident}
+        onSelectForAllocation={() => setIsAllocationModalOpen(true)}
+        onResultsChanged={setNearbyMapResources}
+      />
 
       <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">

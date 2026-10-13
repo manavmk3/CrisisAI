@@ -10,6 +10,7 @@ import {
   getIncidentAllocations,
   getCandidatesForIncident,
 } from '../controllers/allocation.controller.js';
+import { getNearbyResources } from '../controllers/nearbyResource.controller.js';
 import { requireAuthorityOrAdmin } from './allocation.routes.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 
@@ -23,5 +24,6 @@ router.patch('/:id', authenticate, updateIncident);
 router.post('/:id/allocate', authenticate, requireAuthorityOrAdmin, allocateToIncident);
 router.get('/:id/allocations', getIncidentAllocations);
 router.get('/:id/candidates', getCandidatesForIncident);
+router.get('/:id/nearby-resources', authenticate, requireAuthorityOrAdmin, getNearbyResources);
 
 export default router;

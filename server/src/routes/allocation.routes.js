@@ -5,6 +5,7 @@ import {
   getCandidatesForIncident,
   releaseAllocation,
 } from '../controllers/allocation.controller.js';
+import { getNearbyResources } from '../controllers/nearbyResource.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 
 const requireAuthorityOrAdmin = (req, res, next) => {
@@ -30,6 +31,13 @@ router.post(
 router.get('/incident/:id', authenticate, getIncidentAllocations);
 
 router.get('/incident/:id/candidates', authenticate, getCandidatesForIncident);
+
+router.get(
+  '/incident/:id/nearby-resources',
+  authenticate,
+  requireAuthorityOrAdmin,
+  getNearbyResources
+);
 
 router.post(
   '/:allocationId/release',
