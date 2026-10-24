@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -18,6 +18,7 @@ import {
   validateCoordinates,
   extractIncidentCoordinates,
 } from "../utils/coordinateValidation";
+import { useRealtimeSync } from "../hooks/useRealtimeSync";
 
 export const DEFAULT_TILE_LAYER = {
   name: "OpenStreetMap Standard",
@@ -503,6 +504,21 @@ export default function IncidentMap({
   const [resources, setResources] = useState(resourcesProp || []);
   const fetchedRef = useRef(false);
 
+  const loadResources = useCallback(async () => {
+    try {
+      const r = await fetch(API_BASE + "/resources");
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const data = await r.json();
+      if (data.success && Array.isArray(data.data)) {
+        setResources(data.data);
+      } else {
+        setResources([]);
+      }
+    } catch (err) {
+      console.warn("[IncidentMap] Could not load resources:", err.message);
+    }
+  }, []);
+
   useEffect(() => {
     if (resourcesProp !== null) {
       setResources(resourcesProp);
@@ -510,23 +526,15 @@ export default function IncidentMap({
     }
     if (fetchedRef.current) return;
     fetchedRef.current = true;
-    fetch(API_BASE + "/resources")
-      .then(function (r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      })
-      .then(function (data) {
-        if (data.success && Array.isArray(data.data)) {
-          setResources(data.data);
-        } else {
-          setResources([]);
-        }
-      })
-      .catch(function (err) {
-        console.warn("[IncidentMap] Could not load resources:", err.message);
-        setResources([]);
-      });
-  }, [resourcesProp]);
+    loadResources();
+  }, [resourcesProp, loadResources]);
+
+  const { isConnected: _isMapSocketConnected } = useRealtimeSync({
+    onSync: loadResources,
+    events: ["resource:created", "resource:updated", "resource:assigned", "resource:released"],
+    fallbackIntervalMs: 12000,
+    enabled: resourcesProp === null,
+  });
 
   let activeCenter = DEFAULT_MAP_CENTER;
   let activeZoom = zoom || DEFAULT_MAP_ZOOM;

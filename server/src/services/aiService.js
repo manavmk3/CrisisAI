@@ -71,7 +71,7 @@ function classifyGeminiError(err) {
   );
 }
 
-const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-3.6-flash'];
+const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.5-flash'];
 
 async function callGemini(genAI, prompt) {
   let lastErr = null;

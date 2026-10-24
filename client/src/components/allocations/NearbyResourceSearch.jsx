@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useRole } from '../../context/RoleContext';
+import { useRealtimeSync } from '../../hooks/useRealtimeSync';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -121,6 +122,19 @@ export default function NearbyResourceSearch({
       runSearch();
     }
   }, [hasValidCoords, hasSearched, runSearch]);
+
+  const handleNearbySync = useCallback(() => {
+    if (hasSearched && hasValidCoords) {
+      runSearch();
+    }
+  }, [hasSearched, hasValidCoords, runSearch]);
+
+  const { isConnected: _isNearbySocketConnected } = useRealtimeSync({
+    onSync: handleNearbySync,
+    events: ['resource:created', 'resource:updated', 'resource:assigned', 'resource:released'],
+    fallbackIntervalMs: 12000,
+    enabled: hasValidCoords,
+  });
 
   if (!hasValidCoords) {
     return (

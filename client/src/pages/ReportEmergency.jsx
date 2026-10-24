@@ -548,7 +548,7 @@ export default function ReportEmergency() {
               <div className="rounded-xl border border-purple-500/20 bg-purple-950/20 p-4 space-y-3 backdrop-blur-sm">
                 <div className="flex items-center gap-2 text-purple-300">
                   <Brain className="h-4 w-4 animate-pulse" />
-                  <span className="text-xs font-semibold">Gemini AI analyzing report & scoring priority…</span>
+                  <span className="text-xs font-semibold">Analyzing the report…</span>
                 </div>
                 <div className="space-y-2">
                   <div className="h-2.5 w-3/4 rounded bg-white/10 animate-pulse" />

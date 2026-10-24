@@ -1,5 +1,9 @@
 import mongoose from 'mongoose';
 import Resource, { RESOURCE_TYPES, RESOURCE_STATUSES } from '../models/Resource.js';
+import {
+  emitResourceCreated,
+  emitResourceUpdated,
+} from '../services/socket.service.js';
 
 const PROTECTED_FIELDS = ['_id', 'id', '__v', 'createdAt', 'updatedAt', 'managedBy'];
 
@@ -109,6 +113,8 @@ export const createResource = async (req, res) => {
     });
 
     await resource.save();
+
+    emitResourceCreated(resource);
 
     return res.status(201).json({
       success: true,
@@ -316,6 +322,8 @@ export const updateResource = async (req, res) => {
 
     await resource.save();
 
+    emitResourceUpdated(resource);
+
     return res.status(200).json({ success: true, data: resource });
   } catch (err) {
     if (err.name === 'ValidationError') {
@@ -341,6 +349,18 @@ export const deleteResource = async (req, res) => {
     }
 
     await Resource.findByIdAndDelete(id);
+
+    emitResourceUpdated({
+      _id: id,
+      id,
+      name: resource.name,
+      type: resource.type,
+      quantity: 0,
+      availableQuantity: 0,
+      status: 'maintenance',
+      deleted: true,
+      updatedAt: new Date(),
+    });
 
     return res.status(200).json({
       success: true,

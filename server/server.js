@@ -1,6 +1,8 @@
+import http from 'http';
 import app from './src/app.js';
 import config from './src/config/env.js';
 import { connectDB, disconnectDB } from './src/config/db.js';
+import { initSocket, closeSocket } from './src/services/socket.service.js';
 
 const PORT = config.port || 5000;
 let server;
@@ -9,10 +11,14 @@ const startServer = async () => {
   try {
     await connectDB();
 
-    server = app.listen(PORT, () => {
+    server = http.createServer(app);
+    initSocket(server);
+
+    server.listen(PORT, () => {
       console.log(`=========================================`);
       console.log(`🚀 CrisisAI Server running in ${config.nodeEnv.toUpperCase()} mode`);
       console.log(`📡 URL: http://localhost:${PORT}`);
+      console.log(`🔌 Socket.IO Real-Time Engine attached`);
       console.log(`🩺 Health Check: http://localhost:${PORT}/api/health`);
       console.log(`=========================================`);
     });
@@ -33,6 +39,8 @@ const gracefulShutdown = async (signal) => {
   }, 10000);
 
   try {
+    closeSocket();
+
     if (server) {
       await new Promise((resolve) => {
         server.close(() => {

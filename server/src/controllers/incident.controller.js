@@ -16,6 +16,12 @@ import {
   DUPLICATE_TIME_WINDOW_HOURS,
   isValidCoordinate,
 } from '../services/duplicateDetection.service.js';
+import {
+  emitIncidentCreated,
+  emitIncidentUpdated,
+  emitIncidentVerificationChanged,
+  emitIncidentResolved,
+} from '../services/socket.service.js';
 
 export const createIncident = async (req, res) => {
   try {
@@ -175,6 +181,8 @@ export const createIncident = async (req, res) => {
     });
 
     await incident.save();
+
+    emitIncidentCreated(incident);
 
     return res.status(201).json({
       success: true,
@@ -360,6 +368,9 @@ export const updateIncident = async (req, res) => {
       });
     }
 
+    const previousStatus = incident.status;
+    const previousVerificationState = incident.verificationState || 'verified';
+
     const { status, verificationState, location, urgency, requiredResources, needs, coordinates, latitude, longitude } = req.body;
 
     if (status !== undefined) {
@@ -437,6 +448,17 @@ export const updateIncident = async (req, res) => {
     }
 
     await incident.save();
+
+    emitIncidentUpdated(incident);
+
+    const newVerificationState = incident.verificationState || 'verified';
+    if (previousVerificationState !== newVerificationState) {
+      emitIncidentVerificationChanged(incident, previousVerificationState, newVerificationState);
+    }
+
+    if (previousStatus !== 'resolved' && incident.status === 'resolved') {
+      emitIncidentResolved(incident);
+    }
 
     return res.status(200).json({
       success: true,

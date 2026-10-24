@@ -25,6 +25,16 @@ import { useAuth } from '../context/AuthContext';
 import GlobeStudy from '@/components/ui/globe-study';
 import ResourceAllocationModal from '../components/allocations/ResourceAllocationModal';
 import IncidentMap from '../components/IncidentMap';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+
+const DASHBOARD_REALTIME_EVENTS = [
+  'incident:created',
+  'incident:updated',
+  'incident:verification-changed',
+  'incident:resolved',
+  'resource:assigned',
+  'resource:released',
+];
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -171,6 +181,16 @@ export default function Dashboard() {
   const handleRefresh = () => {
     fetchIncidents(true);
   };
+
+  const handleRealtimeSync = useCallback(() => {
+    fetchIncidents(true);
+  }, [fetchIncidents]);
+
+  const { isConnected } = useRealtimeSync({
+    onSync: handleRealtimeSync,
+    events: DASHBOARD_REALTIME_EVENTS,
+    fallbackIntervalMs: 12000,
+  });
 
   const totalIncidentsCount = allIncidentsStats.length;
   const criticalCount = allIncidentsStats.filter(
@@ -341,9 +361,28 @@ export default function Dashboard() {
             </button>
           </div>
 
-          <div className="text-xs text-slate-400 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Mode: {currentView === 'map' ? 'Interactive Crisis Map' : 'Triage Dispatch Queue'}</span>
+          <div className="text-xs text-slate-400 flex items-center gap-2.5">
+            {isConnected ? (
+              <span
+                id="realtime-status-badge"
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 shadow-sm"
+                title="Connected to live Socket.IO stream"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Socket.IO Live</span>
+              </span>
+            ) : (
+              <span
+                id="realtime-status-badge"
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-950/80 text-amber-400 border border-amber-800/60 shadow-sm"
+                title="Socket disconnected; short-interval fallback polling active (12s)"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                <span>Fallback Polling (12s)</span>
+              </span>
+            )}
+            <span className="h-2 w-2 rounded-full bg-slate-600 hidden sm:inline" />
+            <span className="hidden sm:inline">Mode: {currentView === 'map' ? 'Interactive Crisis Map' : 'Triage Dispatch Queue'}</span>
           </div>
         </div>
 

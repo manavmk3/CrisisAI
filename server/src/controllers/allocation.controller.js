@@ -5,6 +5,12 @@ import {
   getCandidatesForIncident as getCandidatesForIncidentService,
   AllocationServiceError,
 } from '../services/resourceAllocation.service.js';
+import Resource from '../models/Resource.js';
+import {
+  emitResourceAssigned,
+  emitResourceReleased,
+  emitResourceUpdated,
+} from '../services/socket.service.js';
 
 export const allocateToIncident = async (req, res) => {
   try {
@@ -18,6 +24,21 @@ export const allocateToIncident = async (req, res) => {
       idempotencyKey,
       notes,
     });
+
+    if (result.success && !result.idempotent) {
+      emitResourceAssigned({ incidentId: id, allocations: result.allocations || [] });
+
+      if (Array.isArray(result.allocations)) {
+        for (const alloc of result.allocations) {
+          const resId = alloc.resource?._id || alloc.resource;
+          if (resId) {
+            Resource.findById(resId).then((r) => {
+              if (r) emitResourceUpdated(r);
+            }).catch(() => {});
+          }
+        }
+      }
+    }
 
     const statusCode = result.success ? (result.idempotent ? 200 : 201) : 400;
     return res.status(statusCode).json(result);
@@ -100,6 +121,21 @@ export const releaseAllocation = async (req, res) => {
       userId: req.user?._id || null,
       notes,
     });
+
+    if (result.success && result.data) {
+      emitResourceReleased({
+        allocationId,
+        incidentId: result.data.incident,
+        resourceId: result.data.resource,
+        quantity: result.data.quantity,
+      });
+
+      if (result.data.resource) {
+        Resource.findById(result.data.resource).then((r) => {
+          if (r) emitResourceUpdated(r);
+        }).catch(() => {});
+      }
+    }
 
     return res.status(200).json(result);
   } catch (err) {

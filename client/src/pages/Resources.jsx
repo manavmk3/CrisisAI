@@ -15,6 +15,14 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+
+const RESOURCE_REALTIME_EVENTS = [
+  'resource:created',
+  'resource:updated',
+  'resource:assigned',
+  'resource:released',
+];
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -406,6 +414,16 @@ export default function Resources() {
     fetchResources();
   }, [fetchResources]);
 
+  const handleResourceSync = useCallback(() => {
+    fetchResources();
+  }, [fetchResources]);
+
+  const { isConnected } = useRealtimeSync({
+    onSync: handleResourceSync,
+    events: RESOURCE_REALTIME_EVENTS,
+    fallbackIntervalMs: 12000,
+  });
+
   const handleRefresh = () => {
     setIsRefreshing(true);
     fetchResources();
@@ -434,6 +452,26 @@ export default function Resources() {
         </div>
 
         <div className="flex items-center gap-2">
+          {isConnected ? (
+            <span
+              id="realtime-status-badge"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 shadow-sm"
+              title="Connected to live Socket.IO stream"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Live Real-Time</span>
+            </span>
+          ) : (
+            <span
+              id="realtime-status-badge"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono bg-amber-950/80 text-amber-400 border border-amber-800/60 shadow-sm"
+              title="Socket disconnected; fallback polling active (12s)"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              <span>Polling (12s)</span>
+            </span>
+          )}
+
           <button
             id="refresh-resources-btn"
             onClick={handleRefresh}
