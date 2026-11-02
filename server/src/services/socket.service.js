@@ -316,3 +316,38 @@ export function emitResourceReleased({ allocationId, incidentId, resourceId, qua
   };
   emitEvent('resource:released', payload);
 }
+
+export function emitAssignmentCreated(assignment) {
+  if (!assignment) return;
+  const payload = {
+    event: 'assignment:created',
+    assignmentId: (assignment._id || assignment.id).toString(),
+    incidentId: (assignment.incidentId?._id || assignment.incidentId || '').toString(),
+    resourceId: assignment.resourceId ? (assignment.resourceId._id || assignment.resourceId).toString() : null,
+    responderId: assignment.responderId ? (assignment.responderId._id || assignment.responderId).toString() : null,
+    status: assignment.status,
+    ETA: assignment.ETA,
+    assignedBy: assignment.assignedBy ? (assignment.assignedBy._id || assignment.assignedBy).toString() : null,
+    allocationId: assignment.allocationId ? (assignment.allocationId._id || assignment.allocationId).toString() : null,
+    notes: assignment.notes || '',
+    createdAt: assignment.createdAt,
+    timestamp: new Date().toISOString(),
+  };
+  emitEvent('assignment:created', payload);
+}
+
+export function emitAssignmentStatusUpdated(assignment, previousStatus) {
+  if (!assignment) return;
+  const payload = {
+    event: 'assignment:status-updated',
+    assignmentId: (assignment._id || assignment.id).toString(),
+    incidentId: (assignment.incidentId?._id || assignment.incidentId || '').toString(),
+    previousStatus,
+    status: assignment.status,
+    ETA: assignment.ETA,
+    updatedAt: assignment.updatedAt,
+    timestamp: new Date().toISOString(),
+  };
+  emitEvent('assignment:status-updated', payload);
+}
+

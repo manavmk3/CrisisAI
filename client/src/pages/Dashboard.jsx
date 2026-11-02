@@ -34,6 +34,8 @@ const DASHBOARD_REALTIME_EVENTS = [
   'incident:resolved',
   'resource:assigned',
   'resource:released',
+  'assignment:created',
+  'assignment:status-updated',
 ];
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';

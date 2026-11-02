@@ -17,12 +17,15 @@ import {
   Calendar,
   Crosshair,
   Package,
+  UserCheck,
+  Clock,
 } from 'lucide-react';
 import { useRole } from '../context/RoleContext';
 import { useAuth } from '../context/AuthContext';
 import ResourceAllocationModal from '../components/allocations/ResourceAllocationModal';
 import NearbyResourceSearch from '../components/allocations/NearbyResourceSearch';
 import IncidentMap from '../components/IncidentMap';
+import AssignmentModal from '../components/AssignmentModal';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 const DETAIL_REALTIME_EVENTS = [
@@ -31,6 +34,8 @@ const DETAIL_REALTIME_EVENTS = [
   'incident:resolved',
   'resource:assigned',
   'resource:released',
+  'assignment:created',
+  'assignment:status-updated',
 ];
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -55,11 +60,16 @@ export default function IncidentDetail() {
   const [referringDuplicates, setReferringDuplicates] = useState([]);
   const [candidates, setCandidates] = useState([]);
   const [allocations, setAllocations] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [selectedCandidateForAssign, setSelectedCandidateForAssign] = useState(null);
   const [releasingAllocationId, setReleasingAllocationId] = useState(null);
   const [releaseFeedback, setReleaseFeedback] = useState(null);
+  const [updatingAssignmentId, setUpdatingAssignmentId] = useState(null);
+  const [assignmentFeedback, setAssignmentFeedback] = useState(null);
   const [nearbyMapResources, setNearbyMapResources] = useState([]);
 
   const canAllocate = currentRole === ROLES.AUTHORITY || currentRole === ROLES.ADMIN;
@@ -119,6 +129,20 @@ export default function IncidentDetail() {
       } catch (allocErr) {
         console.warn('Could not load allocations:', allocErr.message);
       }
+
+      try {
+        const assignRes = await fetch(`${API_BASE_URL}/incidents/${id}/assignments`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (assignRes.ok) {
+          const assignData = await assignRes.json();
+          if (assignData.success && Array.isArray(assignData.data)) {
+            setAssignments(assignData.data);
+          }
+        }
+      } catch (assignErr) {
+        console.warn('Could not load assignments:', assignErr.message);
+      }
     } catch (err) {
       console.error('[IncidentDetail] Error:', err);
       setError(err.message || 'Error loading incident details.');
@@ -172,6 +196,36 @@ export default function IncidentDetail() {
       setReleaseFeedback({ type: 'error', message: err.message });
     } finally {
       setReleasingAllocationId(null);
+    }
+  };
+
+  const handleUpdateAssignmentStatus = async (assignmentId, newStatus) => {
+    setUpdatingAssignmentId(assignmentId);
+    setAssignmentFeedback(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/assignments/${assignmentId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAssignmentFeedback({
+          type: 'success',
+          message: `Assignment status successfully transitioned to "${newStatus}".`,
+        });
+        fetchIncidentDetails();
+      } else {
+        throw new Error(data.message || 'Failed to update assignment status.');
+      }
+    } catch (err) {
+      setAssignmentFeedback({ type: 'error', message: err.message });
+    } finally {
+      setUpdatingAssignmentId(null);
     }
   };
 
@@ -256,13 +310,25 @@ export default function IncidentDetail() {
           )}
 
           {canAllocate && (
-            <button
-              onClick={() => setIsAllocationModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white shadow-md shadow-blue-900/30 transition"
-            >
-              <Truck className="h-4 w-4" />
-              <span>Allocate Resources</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setSelectedCandidateForAssign(null);
+                  setIsAssignmentModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-md shadow-emerald-900/30 transition"
+              >
+                <UserCheck className="h-4 w-4" />
+                <span>Assign Deployment</span>
+              </button>
+              <button
+                onClick={() => setIsAllocationModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white shadow-md shadow-blue-900/30 transition"
+              >
+                <Truck className="h-4 w-4" />
+                <span>Allocate Resources</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -752,12 +818,25 @@ export default function IncidentDetail() {
                   )}
 
                   {canAllocate && (
-                    <button
-                      onClick={() => setIsAllocationModalOpen(true)}
-                      className="w-full py-1.5 px-3 rounded-lg bg-blue-600/90 hover:bg-blue-500 text-xs font-bold text-white transition shadow"
-                    >
-                      Allocate This Resource
-                    </button>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={() => {
+                          setSelectedCandidateForAssign(cand);
+                          setIsAssignmentModalOpen(true);
+                        }}
+                        className="flex-1 py-1.5 px-3 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 text-xs font-bold text-white transition shadow flex items-center justify-center gap-1.5"
+                      >
+                        <UserCheck className="h-3.5 w-3.5" />
+                        <span>Assign Mission</span>
+                      </button>
+                      <button
+                        onClick={() => setIsAllocationModalOpen(true)}
+                        className="py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-300 hover:text-white transition"
+                        title="Bulk Allocate"
+                      >
+                        Allocate
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -843,11 +922,187 @@ export default function IncidentDetail() {
         )}
       </div>
 
+      <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <UserCheck className="h-4 w-4 text-purple-400" />
+            <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+              Section G: Mission Assignments & Dispatch Lifecycle ({assignments.length})
+            </h2>
+          </div>
+
+          {canAllocate && (
+            <button
+              onClick={() => {
+                setSelectedCandidateForAssign(null);
+                setIsAssignmentModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-xs font-bold text-white transition"
+            >
+              <UserCheck className="h-3.5 w-3.5" />
+              <span>Create Assignment</span>
+            </button>
+          )}
+        </div>
+
+        {assignmentFeedback && (
+          <div
+            className={`p-3 rounded-lg text-xs font-medium ${
+              assignmentFeedback.type === 'success'
+                ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800/60'
+                : 'bg-red-950/60 text-red-300 border border-red-800/60'
+            }`}
+          >
+            {assignmentFeedback.message}
+          </div>
+        )}
+
+        {assignments.length === 0 ? (
+          <p className="text-xs text-slate-400 italic">
+            No resources or responders are currently assigned to this incident.
+          </p>
+        ) : (
+          <div className="divide-y divide-slate-800/80 rounded-xl border border-slate-800 bg-slate-850/60 overflow-hidden">
+            {assignments.map((assign) => {
+              const statusColorMap = {
+                assigned: 'bg-blue-950 text-blue-400 border-blue-800/60',
+                accepted: 'bg-purple-950 text-purple-400 border-purple-800/60',
+                en_route: 'bg-amber-950 text-amber-400 border-amber-800/60',
+                arrived: 'bg-indigo-950 text-indigo-400 border-indigo-800/60',
+                completed: 'bg-emerald-950 text-emerald-400 border-emerald-800/60',
+                cancelled: 'bg-slate-800 text-slate-400 border-slate-700',
+              };
+
+              const isUpdating = updatingAssignmentId === assign._id;
+              const isTerminal = assign.status === 'completed' || assign.status === 'cancelled';
+
+              return (
+                <div
+                  key={assign._id}
+                  className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs"
+                >
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-slate-400 font-bold">
+                        ASG-{(assign._id || '').slice(-6).toUpperCase()}
+                      </span>
+                      <span
+                        className={`font-mono text-[10px] px-2 py-0.5 rounded border uppercase font-bold ${
+                          statusColorMap[assign.status] || 'bg-slate-800 text-slate-300'
+                        }`}
+                      >
+                        {assign.status.replace('_', ' ')}
+                      </span>
+                      {assign.ETA !== null && assign.ETA !== undefined && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-300 bg-amber-950/50 px-2 py-0.5 rounded border border-amber-800/40">
+                          <Clock className="h-3 w-3" />
+                          <span>ETA: {assign.ETA}m</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-300 text-xs pt-0.5">
+                      {assign.resourceId && (
+                        <span className="flex items-center gap-1.5">
+                          <Truck className="h-3.5 w-3.5 text-blue-400" />
+                          <span>Resource: <strong className="text-white">{assign.resourceId.name}</strong> ({assign.resourceId.type})</span>
+                        </span>
+                      )}
+                      {assign.responderId && (
+                        <span className="flex items-center gap-1.5">
+                          <UserCheck className="h-3.5 w-3.5 text-purple-400" />
+                          <span>Responder: <strong className="text-white">{assign.responderId.name}</strong> ({assign.responderId.role})</span>
+                        </span>
+                      )}
+                      <span className="text-slate-500">|</span>
+                      <span className="text-slate-400">
+                        Assigned by <strong className="text-slate-300">{assign.assignedBy?.name || 'Authority'}</strong>
+                      </span>
+                    </div>
+
+                    {assign.notes && (
+                      <p className="text-[11px] text-slate-400 italic">
+                        Notes: {assign.notes}
+                      </p>
+                    )}
+
+                    <div className="text-[10px] text-slate-500 font-mono">
+                      Created: {new Date(assign.createdAt).toLocaleTimeString()} • Updated: {new Date(assign.updatedAt).toLocaleTimeString()}
+                    </div>
+                  </div>
+
+                  {!isTerminal && canAllocate && (
+                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                      {assign.status === 'assigned' && (
+                        <button
+                          onClick={() => handleUpdateAssignmentStatus(assign._id, 'accepted')}
+                          disabled={isUpdating}
+                          className="px-2.5 py-1 rounded-lg bg-purple-950/70 text-purple-300 border border-purple-800/60 hover:bg-purple-900/80 transition text-xs font-semibold disabled:opacity-50"
+                        >
+                          {isUpdating ? 'Updating...' : 'Accept'}
+                        </button>
+                      )}
+                      {assign.status === 'accepted' && (
+                        <button
+                          onClick={() => handleUpdateAssignmentStatus(assign._id, 'en_route')}
+                          disabled={isUpdating}
+                          className="px-2.5 py-1 rounded-lg bg-amber-950/70 text-amber-300 border border-amber-800/60 hover:bg-amber-900/80 transition text-xs font-semibold disabled:opacity-50"
+                        >
+                          {isUpdating ? 'Updating...' : 'En Route'}
+                        </button>
+                      )}
+                      {assign.status === 'en_route' && (
+                        <button
+                          onClick={() => handleUpdateAssignmentStatus(assign._id, 'arrived')}
+                          disabled={isUpdating}
+                          className="px-2.5 py-1 rounded-lg bg-indigo-950/70 text-indigo-300 border border-indigo-800/60 hover:bg-indigo-900/80 transition text-xs font-semibold disabled:opacity-50"
+                        >
+                          {isUpdating ? 'Updating...' : 'Arrived'}
+                        </button>
+                      )}
+                      {assign.status === 'arrived' && (
+                        <button
+                          onClick={() => handleUpdateAssignmentStatus(assign._id, 'completed')}
+                          disabled={isUpdating}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-950/70 text-emerald-300 border border-emerald-800/60 hover:bg-emerald-900/80 transition text-xs font-semibold disabled:opacity-50"
+                        >
+                          {isUpdating ? 'Updating...' : 'Complete'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleUpdateAssignmentStatus(assign._id, 'cancelled')}
+                        disabled={isUpdating}
+                        className="px-2 py-1 rounded-lg bg-red-950/50 text-red-300 border border-red-800/50 hover:bg-red-900/60 transition text-xs font-semibold disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {isAllocationModalOpen && (
         <ResourceAllocationModal
           incident={incident}
           onClose={() => setIsAllocationModalOpen(false)}
           onAllocationChanged={fetchIncidentDetails}
+        />
+      )}
+
+      {isAssignmentModalOpen && (
+        <AssignmentModal
+          incident={incident}
+          isOpen={isAssignmentModalOpen}
+          onClose={() => {
+            setIsAssignmentModalOpen(false);
+            setSelectedCandidateForAssign(null);
+          }}
+          onAssignmentCreated={fetchIncidentDetails}
+          initialResource={selectedCandidateForAssign}
         />
       )}
     </div>
