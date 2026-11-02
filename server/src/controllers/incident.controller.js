@@ -368,25 +368,27 @@ export const updateIncident = async (req, res) => {
       });
     }
 
+    if (!['authority', 'admin'].includes(req.user?.role)) {
+      if (incident.reporter && req.user?._id && incident.reporter.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. You do not have permission to modify this incident.',
+        });
+      }
+    }
+
     const previousStatus = incident.status;
     const previousVerificationState = incident.verificationState || 'verified';
 
     const { status, verificationState, location, urgency, requiredResources, needs, coordinates, latitude, longitude } = req.body;
 
-    if (status !== undefined) {
-      if (!INCIDENT_STATUSES.includes(status)) {
-        return res.status(400).json({
+    if (verificationState !== undefined) {
+      if (!['authority', 'admin'].includes(req.user?.role)) {
+        return res.status(403).json({
           success: false,
-          message: `Invalid status: "${status}". Allowed: ${INCIDENT_STATUSES.join(', ')}`,
+          message: 'Access denied. Only authority and admin roles can modify verification state.',
         });
       }
-      incident.status = status;
-      if (status === 'under_review') {
-        incident.verificationState = 'needs_review';
-      }
-    }
-
-    if (verificationState !== undefined) {
       const allowedVer = ['verified', 'needs_review'];
       if (!allowedVer.includes(verificationState)) {
         return res.status(400).json({
@@ -395,6 +397,25 @@ export const updateIncident = async (req, res) => {
         });
       }
       incident.verificationState = verificationState;
+    }
+
+    if (status !== undefined) {
+      if (!INCIDENT_STATUSES.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status: "${status}". Allowed: ${INCIDENT_STATUSES.join(', ')}`,
+        });
+      }
+      if (['resolved', 'dispatched', 'closed', 'verified'].includes(status) && !['authority', 'admin'].includes(req.user?.role)) {
+        return res.status(403).json({
+          success: false,
+          message: `Access denied. Status "${status}" cannot be set by role "${req.user?.role || 'unknown'}".`,
+        });
+      }
+      incident.status = status;
+      if (status === 'under_review') {
+        incident.verificationState = 'needs_review';
+      }
     }
 
     if (location !== undefined) {

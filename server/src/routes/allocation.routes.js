@@ -7,17 +7,9 @@ import {
 } from '../controllers/allocation.controller.js';
 import { getNearbyResources } from '../controllers/nearbyResource.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
+import { authorize } from '../middleware/authorize.js';
 
-const requireAuthorityOrAdmin = (req, res, next) => {
-  const allowed = ['authority', 'admin'];
-  if (!req.user || !allowed.includes(req.user.role)) {
-    return res.status(403).json({
-      success: false,
-      message: `Access denied. Resource allocation requires one of the following roles: ${allowed.join(', ')}. Your current role is "${req.user?.role || 'unknown'}".`,
-    });
-  }
-  next();
-};
+const requireAuthorityOrAdmin = authorize('authority', 'admin');
 
 const router = Router();
 

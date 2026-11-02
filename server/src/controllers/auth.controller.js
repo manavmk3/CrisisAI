@@ -2,7 +2,8 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import config from '../config/env.js';
 
-const VALID_ROLES = ['citizen', 'responder', 'authority', 'admin'];
+const PUBLIC_ROLES = ['citizen', 'volunteer', 'responder'];
+const PRIVILEGED_ROLES = ['authority', 'admin'];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const register = async (req, res, next) => {
@@ -46,10 +47,18 @@ export const register = async (req, res, next) => {
     }
 
     const normalizedRole = typeof role === 'string' ? role.trim().toLowerCase() : 'citizen';
-    if (!VALID_ROLES.includes(normalizedRole)) {
+
+    if (PRIVILEGED_ROLES.includes(normalizedRole)) {
+      return res.status(403).json({
+        success: false,
+        message: `Registration with privileged role '${role}' is not allowed. Only citizen and volunteer accounts may self-register.`,
+      });
+    }
+
+    if (!PUBLIC_ROLES.includes(normalizedRole)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid role '${role}'. Allowed roles are: ${VALID_ROLES.join(', ')}`,
+        message: `Invalid role '${role}'. Allowed roles are: ${PUBLIC_ROLES.join(', ')}`,
       });
     }
 
@@ -118,7 +127,6 @@ export const login = async (req, res, next) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Explicitly select password since User model sets select: false
     const user = await User.findOne({ email: normalizedEmail }).select('+password');
 
     if (!user) {
@@ -136,7 +144,6 @@ export const login = async (req, res, next) => {
       });
     }
 
-    // Generate JWT token with safe payload
     const payload = {
       id: user._id,
       role: user.role,
@@ -185,8 +192,69 @@ export const getMe = async (req, res, next) => {
   }
 };
 
+export const updateMe = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authenticated',
+      });
+    }
+
+    if (req.body.role && req.body.role !== req.user.role) {
+      return res.status(403).json({
+        success: false,
+        message: 'Modifying user role is not permitted.',
+      });
+    }
+
+    if (req.body._id || req.body.password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Modifying protected identity fields is not permitted.',
+      });
+    }
+
+    const { name, agency } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found.',
+      });
+    }
+
+    if (name !== undefined) {
+      if (typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Name must be a non-empty string.',
+        });
+      }
+      user.name = name.trim();
+    }
+
+    if (agency !== undefined) {
+      user.agency = typeof agency === 'string' ? agency.trim() : '';
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        user: user.toJSON(),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export default {
   register,
   login,
   getMe,
+  updateMe,
 };

@@ -100,6 +100,38 @@ export function initSocket(httpServer, customOptions = {}) {
       socket.join('public');
     }
 
+    socket.on('join', (room, callback) => {
+      const privilegedRooms = ['room:authorized', 'role:authority', 'role:admin'];
+      if (privilegedRooms.includes(room)) {
+        if (!socket.user || !['authority', 'admin'].includes(socket.user.role)) {
+          if (typeof callback === 'function') {
+            callback({ success: false, message: 'Unauthorized room subscription' });
+          }
+          return;
+        }
+      }
+      socket.join(room);
+      if (typeof callback === 'function') {
+        callback({ success: true, room });
+      }
+    });
+
+    socket.on('subscribe', (room, callback) => {
+      const privilegedRooms = ['room:authorized', 'role:authority', 'role:admin'];
+      if (privilegedRooms.includes(room)) {
+        if (!socket.user || !['authority', 'admin'].includes(socket.user.role)) {
+          if (typeof callback === 'function') {
+            callback({ success: false, message: 'Unauthorized room subscription' });
+          }
+          return;
+        }
+      }
+      socket.join(room);
+      if (typeof callback === 'function') {
+        callback({ success: true, room });
+      }
+    });
+
     socket.on('disconnect', () => {});
 
     socket.on('error', (err) => {

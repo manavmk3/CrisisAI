@@ -178,7 +178,7 @@ export default function Register() {
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-slate-200">Role on Platform</label>
               <div className="grid grid-cols-2 gap-2">
-                {Object.values(ROLES).map((r) => {
+                {[ROLES.CITIZEN, ROLES.RESPONDER].map((r) => {
                   const info = ROLE_CONFIG[r];
                   const selected = formData.role === r;
                   return (

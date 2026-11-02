@@ -7,27 +7,10 @@ import {
   deleteResource,
 } from '../controllers/resource.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
+import { authorize } from '../middleware/authorize.js';
 
-const requireInventoryManager = (req, res, next) => {
-  const allowed = ['authority', 'admin'];
-  if (!req.user || !allowed.includes(req.user.role)) {
-    return res.status(403).json({
-      success: false,
-      message: `Access denied. Resource management requires one of the following roles: ${allowed.join(', ')}. Your current role is "${req.user?.role || 'unknown'}".`,
-    });
-  }
-  next();
-};
-
-const requireAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied. Only administrators can delete resources.',
-    });
-  }
-  next();
-};
+const requireInventoryManager = authorize('authority', 'admin');
+const requireAdmin = authorize('admin');
 
 const router = Router();
 
