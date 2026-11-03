@@ -23,7 +23,6 @@ export default function Sidebar({ isOpen, onClose }) {
   const { currentRole, setCurrentRole, ROLES } = useRole();
   const location = useLocation();
 
-  // Role-specific navigation items
   const navItemsByRole = {
     [ROLES.CITIZEN]: [
       { label: 'Submit Emergency Report', path: '/report', icon: AlertTriangle, highlight: true },
@@ -32,10 +31,10 @@ export default function Sidebar({ isOpen, onClose }) {
       { label: 'Emergency Hotlines', path: '/dashboard?view=hotlines', icon: PhoneCall },
     ],
     [ROLES.RESPONDER]: [
-      { label: 'Assigned Missions', path: '/dashboard?view=missions', icon: Shield, badge: '3 Active' },
-      { label: 'Task Status & En Route', path: '/dashboard?view=status', icon: Navigation },
-      { label: 'Responder Fleet Location', path: '/dashboard?view=fleet', icon: MapPin },
-      { label: 'Field Radio & Comms', path: '/dashboard?view=comms', icon: Radio },
+      { label: 'Responder Operations', path: '/responder/dashboard', icon: Shield, highlight: true },
+      { label: 'Pending Assignments', path: '/responder/dashboard?tab=pending', icon: AlertTriangle },
+      { label: 'Active Missions', path: '/responder/dashboard?tab=active', icon: Navigation },
+      { label: 'Completed Tasks', path: '/responder/dashboard?tab=completed', icon: FileText },
     ],
     [ROLES.AUTHORITY]: [
       { label: 'Command Overview', path: '/dashboard', icon: Layers },
@@ -60,7 +59,6 @@ export default function Sidebar({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Mobile backdrop */}
       {isOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden transition-opacity"
@@ -68,13 +66,11 @@ export default function Sidebar({ isOpen, onClose }) {
         />
       )}
 
-      {/* Sidebar container */}
       <aside
         className={`fixed top-16 bottom-0 left-0 z-40 w-64 border-r border-slate-800 bg-[#0b0f19] flex flex-col transition-transform duration-200 ease-in-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Header / Active Role Banner */}
         <div className="p-4 border-b border-slate-800/80">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
@@ -104,7 +100,6 @@ export default function Sidebar({ isOpen, onClose }) {
           </div>
         </div>
 
-        {/* Role navigation list */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           <div className="px-2 pb-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
             Navigation Menu
@@ -142,7 +137,6 @@ export default function Sidebar({ isOpen, onClose }) {
             );
           })}
         </div>
-
       </aside>
     </>
   );

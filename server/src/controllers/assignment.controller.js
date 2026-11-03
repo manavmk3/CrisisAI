@@ -114,7 +114,7 @@ export async function getAssignmentById(req, res) {
 export async function updateAssignmentStatus(req, res) {
   try {
     const assignmentId = req.params.assignmentId || req.params.id;
-    const { status, notes } = req.body;
+    const { status, notes, declineReason, reason } = req.body;
 
     if (!status) {
       return res.status(400).json({
@@ -129,6 +129,7 @@ export async function updateAssignmentStatus(req, res) {
       userId: req.user._id,
       userRole: req.user.role,
       notes,
+      declineReason: declineReason || reason || '',
     });
 
     return res.status(200).json({
@@ -181,10 +182,50 @@ export async function updateAssignment(req, res) {
   }
 }
 
+export async function updateResponderLocation(req, res) {
+  try {
+    const assignmentId = req.params.assignmentId || req.params.id;
+    const { latitude, longitude } = req.body;
+
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'Latitude and longitude are required.',
+      });
+    }
+
+    const updated = await assignmentService.updateResponderLocation({
+      assignmentId,
+      latitude,
+      longitude,
+      userId: req.user._id,
+      userRole: req.user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Responder location updated successfully.',
+      data: updated,
+    });
+  } catch (error) {
+    if (error instanceof AssignmentServiceError) {
+      return res.status(error.statusCode).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while updating responder location.',
+    });
+  }
+}
+
 export async function getMyAssignments(req, res) {
   try {
     const responderId = req.user._id;
-    const assignments = await assignmentService.getResponderAssignments(responderId);
+    const { status } = req.query;
+    const assignments = await assignmentService.getResponderAssignments(responderId, status);
 
     return res.status(200).json({
       success: true,
@@ -231,6 +272,7 @@ export default {
   getAssignmentById,
   updateAssignmentStatus,
   updateAssignment,
+  updateResponderLocation,
   getMyAssignments,
   getAvailableResponders,
 };

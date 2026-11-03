@@ -5,7 +5,12 @@ import Resource from '../models/Resource.js';
 import ResourceAllocation from '../models/ResourceAllocation.js';
 import User from '../models/User.js';
 import { allocateResources, releaseAllocation } from './resourceAllocation.service.js';
-import { emitAssignmentCreated, emitAssignmentStatusUpdated } from './socket.service.js';
+import {
+  emitAssignmentCreated,
+  emitAssignmentStatusUpdated,
+  emitAssignmentDeclined,
+  emitResponderLocationUpdated,
+} from './socket.service.js';
 
 export class AssignmentServiceError extends Error {
   constructor(message, statusCode = 400, details = null) {
@@ -23,6 +28,13 @@ const ALLOWED_TRANSITIONS = {
   arrived: ['completed', 'cancelled'],
   completed: [],
   cancelled: [],
+};
+
+const RESPONDER_ALLOWED_NEXT = {
+  assigned: ['accepted', 'cancelled'],
+  accepted: ['en_route'],
+  en_route: ['arrived'],
+  arrived: ['completed'],
 };
 
 export async function createAssignment({
@@ -191,9 +203,10 @@ export async function createAssignment({
   });
 
   const populated = await Assignment.findById(assignment._id)
+    .populate('incidentId', 'summary report location category status severity urgency coordinates priorityScore')
     .populate('resourceId')
-    .populate('responderId', 'name email role')
-    .populate('assignedBy', 'name email role')
+    .populate('responderId', 'name email role agency')
+    .populate('assignedBy', 'name email role agency')
     .populate('allocationId');
 
   emitAssignmentCreated(populated);
@@ -210,6 +223,7 @@ export async function updateAssignmentStatus({
   userId,
   userRole,
   notes = '',
+  declineReason = '',
 }) {
   if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
     throw new AssignmentServiceError('Invalid assignment ID format.', 400);
@@ -220,6 +234,8 @@ export async function updateAssignmentStatus({
     throw new AssignmentServiceError('Assignment not found.', 404);
   }
 
+  const targetStatus = status === 'declined' ? 'cancelled' : status;
+
   if (assignment.status === 'completed' || assignment.status === 'cancelled') {
     throw new AssignmentServiceError(
       `Assignment is already in terminal state "${assignment.status}" and cannot be modified.`,
@@ -227,21 +243,27 @@ export async function updateAssignmentStatus({
     );
   }
 
-  if (!ASSIGNMENT_STATUSES.includes(status)) {
-    throw new AssignmentServiceError(`Invalid assignment status: "${status}".`, 400);
+  if (assignment.status === targetStatus) {
+    const currentPopulated = await Assignment.findById(assignment._id)
+      .populate('incidentId', 'summary report location category status severity urgency coordinates priorityScore')
+      .populate('resourceId')
+      .populate('responderId', 'name email role agency')
+      .populate('assignedBy', 'name email role agency')
+      .populate('allocationId');
+    return currentPopulated;
   }
 
-  const allowed = ALLOWED_TRANSITIONS[assignment.status] || [];
-  if (!allowed.includes(status)) {
-    throw new AssignmentServiceError(
-      `Invalid status transition from "${assignment.status}" to "${status}".`,
-      400
-    );
+  if (!ASSIGNMENT_STATUSES.includes(targetStatus)) {
+    throw new AssignmentServiceError(`Invalid assignment status: "${targetStatus}".`, 400);
   }
 
   const normalizedRole = (userRole || '').toLowerCase();
   const isAuthorityOrAdmin = ['authority', 'admin'].includes(normalizedRole);
   const isResponder = ['volunteer', 'responder'].includes(normalizedRole);
+
+  if (!isAuthorityOrAdmin && !isResponder) {
+    throw new AssignmentServiceError('User is not authorized to update assignment status.', 403);
+  }
 
   if (isResponder && !isAuthorityOrAdmin) {
     if (!assignment.responderId || assignment.responderId.toString() !== userId.toString()) {
@@ -250,32 +272,60 @@ export async function updateAssignmentStatus({
         403
       );
     }
-    if (status === 'cancelled') {
+
+    if (targetStatus === 'cancelled') {
+      if (assignment.status !== 'assigned') {
+        throw new AssignmentServiceError(
+          'Responders are not permitted to cancel active assignments. Please contact an authority.',
+          403
+        );
+      }
+    } else {
+      const allowedNext = RESPONDER_ALLOWED_NEXT[assignment.status] || [];
+      if (!allowedNext.includes(targetStatus)) {
+        throw new AssignmentServiceError(
+          `Invalid status transition from "${assignment.status}" to "${targetStatus}".`,
+          400
+        );
+      }
+    }
+  } else if (isAuthorityOrAdmin) {
+    const allowed = ALLOWED_TRANSITIONS[assignment.status] || [];
+    if (!allowed.includes(targetStatus)) {
       throw new AssignmentServiceError(
-        'Responders are not permitted to cancel assignments. Please contact an authority.',
-        403
+        `Invalid status transition from "${assignment.status}" to "${targetStatus}".`,
+        400
       );
     }
-  } else if (!isAuthorityOrAdmin) {
-    throw new AssignmentServiceError('User is not authorized to update assignment status.', 403);
   }
 
   const previousStatus = assignment.status;
-  assignment.status = status;
+  assignment.status = targetStatus;
+
   if (notes) {
     assignment.notes = assignment.notes ? `${assignment.notes} | ${notes}` : notes;
   }
 
-  if (status === 'cancelled' && assignment.allocationId) {
-    try {
-      await releaseAllocation({
-        allocationId: assignment.allocationId,
-        userId,
-        notes: `Released due to assignment cancellation (${assignment._id})`,
-      });
-    } catch (allocErr) {
-      if (!allocErr.message.includes('cannot be released because it is currently')) {
-        console.error('Failed to release allocation on assignment cancellation:', allocErr.message);
+  if (targetStatus === 'cancelled') {
+    if (declineReason) {
+      assignment.declineReason = declineReason;
+      assignment.declinedBy = userId;
+      assignment.declinedAt = new Date();
+    }
+
+    if (assignment.allocationId) {
+      try {
+        await releaseAllocation({
+          allocationId: assignment.allocationId,
+          userId,
+          notes: declineReason
+            ? `Released due to assignment decline: ${declineReason}`
+            : `Released due to assignment cancellation (${assignment._id})`,
+        });
+      } catch (allocErr) {
+        if (!allocErr.message.includes('cannot be released because it is currently')) {
+          console.error('Failed to release allocation on assignment cancellation:', allocErr.message);
+        }
       }
     }
   }
@@ -283,12 +333,85 @@ export async function updateAssignmentStatus({
   await assignment.save();
 
   const populated = await Assignment.findById(assignment._id)
+    .populate('incidentId', 'summary report location category status severity urgency coordinates priorityScore')
     .populate('resourceId')
-    .populate('responderId', 'name email role')
-    .populate('assignedBy', 'name email role')
+    .populate('responderId', 'name email role agency')
+    .populate('assignedBy', 'name email role agency')
     .populate('allocationId');
 
   emitAssignmentStatusUpdated(populated, previousStatus);
+
+  if (targetStatus === 'cancelled' && (declineReason || isResponder)) {
+    emitAssignmentDeclined(populated, declineReason);
+  }
+
+  return populated;
+}
+
+export async function updateResponderLocation({
+  assignmentId,
+  latitude,
+  longitude,
+  userId,
+  userRole,
+}) {
+  if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
+    throw new AssignmentServiceError('Invalid assignment ID format.', 400);
+  }
+
+  const assignment = await Assignment.findById(assignmentId);
+  if (!assignment) {
+    throw new AssignmentServiceError('Assignment not found.', 404);
+  }
+
+  const normalizedRole = (userRole || '').toLowerCase();
+  const isAuthorityOrAdmin = ['authority', 'admin'].includes(normalizedRole);
+  const isResponder = ['volunteer', 'responder'].includes(normalizedRole);
+
+  if (!isAuthorityOrAdmin && !isResponder) {
+    throw new AssignmentServiceError('Access denied.', 403);
+  }
+
+  if (isResponder && !isAuthorityOrAdmin) {
+    if (!assignment.responderId || assignment.responderId.toString() !== userId.toString()) {
+      throw new AssignmentServiceError(
+        'Responders may only share location for their own assignments.',
+        403
+      );
+    }
+  }
+
+  const activeStatuses = ['accepted', 'en_route', 'arrived'];
+  if (!activeStatuses.includes(assignment.status)) {
+    throw new AssignmentServiceError(
+      `Live location sharing is only permitted for active assignments. Current status is "${assignment.status}".`,
+      400
+    );
+  }
+
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+
+  if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180) {
+    throw new AssignmentServiceError('Invalid geographic coordinates provided.', 400);
+  }
+
+  assignment.responderLocation = {
+    latitude: lat,
+    longitude: lng,
+    updatedAt: new Date(),
+  };
+
+  await assignment.save();
+
+  const populated = await Assignment.findById(assignment._id)
+    .populate('incidentId', 'summary report location category status severity urgency coordinates priorityScore')
+    .populate('resourceId')
+    .populate('responderId', 'name email role agency')
+    .populate('assignedBy', 'name email role agency')
+    .populate('allocationId');
+
+  emitResponderLocationUpdated(populated);
 
   return populated;
 }
@@ -342,9 +465,10 @@ export async function updateAssignmentDetails({
   await assignment.save();
 
   const populated = await Assignment.findById(assignment._id)
+    .populate('incidentId', 'summary report location category status severity urgency coordinates priorityScore')
     .populate('resourceId')
-    .populate('responderId', 'name email role')
-    .populate('assignedBy', 'name email role')
+    .populate('responderId', 'name email role agency')
+    .populate('assignedBy', 'name email role agency')
     .populate('allocationId');
 
   return populated;
@@ -362,9 +486,10 @@ export async function getIncidentAssignments(incidentId) {
 
   const assignments = await Assignment.find({ incidentId })
     .sort({ createdAt: -1 })
+    .populate('incidentId', 'summary report location category status severity urgency coordinates priorityScore')
     .populate('resourceId')
-    .populate('responderId', 'name email role')
-    .populate('assignedBy', 'name email role')
+    .populate('responderId', 'name email role agency')
+    .populate('assignedBy', 'name email role agency')
     .populate('allocationId');
 
   return assignments;
@@ -376,10 +501,10 @@ export async function getAssignmentById(assignmentId, userId = null, userRole = 
   }
 
   const assignment = await Assignment.findById(assignmentId)
-    .populate('incidentId', 'title category status severity urgency coordinates')
+    .populate('incidentId', 'summary report location category status severity urgency coordinates priorityScore')
     .populate('resourceId')
-    .populate('responderId', 'name email role')
-    .populate('assignedBy', 'name email role')
+    .populate('responderId', 'name email role agency')
+    .populate('assignedBy', 'name email role agency')
     .populate('allocationId');
 
   if (!assignment) {
@@ -404,16 +529,21 @@ export async function getAssignmentById(assignmentId, userId = null, userRole = 
   return assignment;
 }
 
-export async function getResponderAssignments(responderId) {
+export async function getResponderAssignments(responderId, statusFilter = null) {
   if (!mongoose.Types.ObjectId.isValid(responderId)) {
     throw new AssignmentServiceError('Invalid responder ID format.', 400);
   }
 
-  const assignments = await Assignment.find({ responderId })
+  const query = { responderId };
+  if (statusFilter && statusFilter !== 'ALL') {
+    query.status = statusFilter;
+  }
+
+  const assignments = await Assignment.find(query)
     .sort({ createdAt: -1 })
-    .populate('incidentId', 'title category status severity urgency coordinates')
+    .populate('incidentId', 'summary report location category status severity urgency coordinates priorityScore')
     .populate('resourceId')
-    .populate('assignedBy', 'name email role')
+    .populate('assignedBy', 'name email role agency')
     .populate('allocationId');
 
   return assignments;
@@ -423,6 +553,7 @@ export default {
   createAssignment,
   updateAssignmentStatus,
   updateAssignmentDetails,
+  updateResponderLocation,
   getIncidentAssignments,
   getAssignmentById,
   getResponderAssignments,

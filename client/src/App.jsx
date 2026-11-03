@@ -7,6 +7,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import ResponderDashboard from './pages/ResponderDashboard';
 import ReportEmergency from './pages/ReportEmergency';
 import Resources from './pages/Resources';
 import IncidentDetail from './pages/IncidentDetail';
@@ -23,6 +24,8 @@ export default function App() {
               <Route path="login" element={<Login />} />
               <Route path="register" element={<Register />} />
               <Route path="dashboard" element={<Dashboard />} />
+              <Route path="responder/dashboard" element={<ResponderDashboard />} />
+              <Route path="responder" element={<ResponderDashboard />} />
               <Route path="incidents/:id" element={<IncidentDetail />} />
               <Route path="report" element={<ReportEmergency />} />
               <Route path="resources" element={<Resources />} />

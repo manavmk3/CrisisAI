@@ -5,6 +5,7 @@ import {
   getAssignmentById,
   updateAssignmentStatus,
   updateAssignment,
+  updateResponderLocation,
   getMyAssignments,
   getAvailableResponders,
 } from '../controllers/assignment.controller.js';
@@ -22,6 +23,10 @@ router.post('/', authenticate, authorize('authority', 'admin'), createAssignment
 router.get('/:assignmentId', authenticate, getAssignmentById);
 
 router.patch('/:assignmentId/status', authenticate, updateAssignmentStatus);
+
+router.patch('/:assignmentId/location', authenticate, updateResponderLocation);
+
+router.post('/:assignmentId/location', authenticate, updateResponderLocation);
 
 router.patch('/:assignmentId', authenticate, authorize('authority', 'admin'), updateAssignment);
 

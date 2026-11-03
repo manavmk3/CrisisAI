@@ -92,6 +92,7 @@ export function initSocket(httpServer, customOptions = {}) {
     if (socket.user) {
       socket.join('authenticated');
       socket.join(`role:${socket.user.role}`);
+      socket.join(`user:${socket.user._id}`);
 
       if (['authority', 'admin'].includes(socket.user.role)) {
         socket.join('room:authorized');
@@ -342,8 +343,10 @@ export function emitAssignmentStatusUpdated(assignment, previousStatus) {
     event: 'assignment:status-updated',
     assignmentId: (assignment._id || assignment.id).toString(),
     incidentId: (assignment.incidentId?._id || assignment.incidentId || '').toString(),
+    responderId: assignment.responderId ? (assignment.responderId._id || assignment.responderId).toString() : null,
     previousStatus,
     status: assignment.status,
+    declineReason: assignment.declineReason || null,
     ETA: assignment.ETA,
     updatedAt: assignment.updatedAt,
     timestamp: new Date().toISOString(),
@@ -351,3 +354,48 @@ export function emitAssignmentStatusUpdated(assignment, previousStatus) {
   emitEvent('assignment:status-updated', payload);
 }
 
+export function emitAssignmentDeclined(assignment, reason = null) {
+  if (!assignment) return;
+  const payload = {
+    event: 'assignment:declined',
+    assignmentId: (assignment._id || assignment.id).toString(),
+    incidentId: (assignment.incidentId?._id || assignment.incidentId || '').toString(),
+    responderId: assignment.responderId ? (assignment.responderId._id || assignment.responderId).toString() : null,
+    reason: reason || assignment.declineReason || null,
+    status: assignment.status,
+    timestamp: new Date().toISOString(),
+  };
+  emitEvent('assignment:declined', payload);
+}
+
+export function emitResponderLocationUpdated(assignment) {
+  if (!assignment) return;
+  const payload = {
+    event: 'assignment:location-updated',
+    assignmentId: (assignment._id || assignment.id).toString(),
+    incidentId: (assignment.incidentId?._id || assignment.incidentId || '').toString(),
+    responderId: assignment.responderId ? (assignment.responderId._id || assignment.responderId).toString() : null,
+    location: assignment.responderLocation || null,
+    timestamp: new Date().toISOString(),
+  };
+  emitEvent('assignment:location-updated', payload);
+}
+
+export default {
+  initSocket,
+  getIO,
+  closeSocket,
+  emitEvent,
+  emitIncidentCreated,
+  emitIncidentUpdated,
+  emitIncidentVerificationChanged,
+  emitIncidentResolved,
+  emitResourceCreated,
+  emitResourceUpdated,
+  emitResourceAssigned,
+  emitResourceReleased,
+  emitAssignmentCreated,
+  emitAssignmentStatusUpdated,
+  emitAssignmentDeclined,
+  emitResponderLocationUpdated,
+};

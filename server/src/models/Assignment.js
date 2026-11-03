@@ -58,6 +58,38 @@ const assignmentSchema = new mongoose.Schema(
       default: '',
       maxlength: [1000, 'Notes cannot exceed 1000 characters'],
     },
+    declineReason: {
+      type: String,
+      default: null,
+      maxlength: [500, 'Decline reason cannot exceed 500 characters'],
+    },
+    declinedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    declinedAt: {
+      type: Date,
+      default: null,
+    },
+    responderLocation: {
+      latitude: {
+        type: Number,
+        default: null,
+        min: [-90, 'Latitude must be between -90 and 90'],
+        max: [90, 'Latitude must be between -90 and 90'],
+      },
+      longitude: {
+        type: Number,
+        default: null,
+        min: [-180, 'Longitude must be between -180 and 180'],
+        max: [180, 'Longitude must be between -180 and 180'],
+      },
+      updatedAt: {
+        type: Date,
+        default: null,
+      },
+    },
     idempotencyKey: {
       type: String,
       default: null,

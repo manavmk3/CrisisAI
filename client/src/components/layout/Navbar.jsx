@@ -12,7 +12,8 @@ import {
   User as UserIcon,
   ChevronDown, 
   Radio, 
-  LayoutDashboard 
+  LayoutDashboard,
+  Shield
 } from 'lucide-react';
 import { useRole, ROLES, ROLE_CONFIG } from '../../context/RoleContext';
 import { useAuth } from '../../context/AuthContext';
@@ -27,6 +28,11 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
 
   const isActive = (path) => location.pathname === path;
 
+  const userRole = (user?.role || '').toLowerCase();
+  const showResponderLink =
+    ['volunteer', 'responder', 'authority', 'admin'].includes(userRole) ||
+    currentRole === ROLES.RESPONDER;
+
   const handleLogout = () => {
     logout();
     setMobileMenuOpen(false);
@@ -37,7 +43,6 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
     <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#0b0f19]/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         
-        {/* Left: Brand and Sidebar Toggle */}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -65,11 +70,7 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
           </Link>
         </div>
 
-
-        {/* Right: Role Switcher & Action Buttons */}
         <div className="flex items-center gap-2 sm:gap-3">
-          
-          {/* Quick Role Preview Switcher */}
           <div className="relative">
             <button
               onClick={() => setShowRoleDropdown(!showRoleDropdown)}
@@ -116,7 +117,6 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
             )}
           </div>
 
-          {/* Quick Report Emergency Button */}
           <Link
             to="/report"
             className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-red-900/40 hover:bg-red-500 active:scale-95 transition"
@@ -125,7 +125,6 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
             <span className="hidden xs:inline">Report Crisis</span>
           </Link>
 
-          {/* Desktop Nav Links */}
           <nav className="hidden lg:flex items-center gap-1 text-xs">
             <Link
               to="/"
@@ -144,9 +143,19 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
               <LayoutDashboard className="h-3.5 w-3.5" />
               Dashboard
             </Link>
+            {showResponderLink && (
+              <Link
+                to="/responder/dashboard"
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-medium transition ${
+                  isActive('/responder/dashboard') ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Shield className="h-3.5 w-3.5 text-red-400" />
+                Responder Ops
+              </Link>
+            )}
           </nav>
 
-          {/* Auth Buttons */}
           <div className="hidden sm:flex items-center gap-2 border-l border-slate-800 pl-2.5">
             {isAuthenticated && user ? (
               <>
@@ -188,7 +197,6 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
             )}
           </div>
 
-          {/* Mobile hamburger menu button */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -199,7 +207,6 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
         </div>
       </div>
 
-      {/* Mobile menu dropdown */}
       {mobileMenuOpen && (
         <div className="sm:hidden border-t border-slate-800 bg-slate-950/95 px-4 py-3 space-y-2 backdrop-blur-lg">
           <Link
@@ -216,6 +223,15 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
           >
             Dashboard
           </Link>
+          {showResponderLink && (
+            <Link
+              to="/responder/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 text-red-400"
+            >
+              Responder Ops
+            </Link>
+          )}
 
           {isAuthenticated && user ? (
             <div className="pt-2 border-t border-slate-800/80 space-y-2">
