@@ -302,6 +302,10 @@ export async function updateAssignmentStatus({
   const previousStatus = assignment.status;
   assignment.status = targetStatus;
 
+  if (targetStatus === 'accepted' && !assignment.acceptedAt) {
+    assignment.acceptedAt = new Date();
+  }
+
   if (notes) {
     assignment.notes = assignment.notes ? `${assignment.notes} | ${notes}` : notes;
   }

@@ -72,6 +72,10 @@ const assignmentSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    acceptedAt: {
+      type: Date,
+      default: null,
+    },
     responderLocation: {
       latitude: {
         type: Number,

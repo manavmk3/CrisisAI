@@ -11,6 +11,7 @@ import ResponderDashboard from './pages/ResponderDashboard';
 import ReportEmergency from './pages/ReportEmergency';
 import Resources from './pages/Resources';
 import IncidentDetail from './pages/IncidentDetail';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import NotFound from './pages/NotFound';
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
               <Route path="incidents/:id" element={<IncidentDetail />} />
               <Route path="report" element={<ReportEmergency />} />
               <Route path="resources" element={<Resources />} />
+              <Route path="analytics" element={<AnalyticsDashboard />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

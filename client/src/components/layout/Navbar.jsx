@@ -13,7 +13,8 @@ import {
   ChevronDown, 
   Radio, 
   LayoutDashboard,
-  Shield
+  Shield,
+  BarChart3
 } from 'lucide-react';
 import { useRole, ROLES, ROLE_CONFIG } from '../../context/RoleContext';
 import { useAuth } from '../../context/AuthContext';
@@ -33,6 +34,10 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
   const showResponderLink =
     ['volunteer', 'responder', 'authority', 'admin'].includes(userRole) ||
     currentRole === ROLES.RESPONDER;
+  const showAnalyticsLink =
+    ['authority', 'admin'].includes(userRole) ||
+    currentRole === ROLES.AUTHORITY ||
+    currentRole === ROLES.ADMIN;
 
   const handleLogout = () => {
     logout();
@@ -157,6 +162,17 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
                 Responder Ops
               </Link>
             )}
+            {showAnalyticsLink && (
+              <Link
+                to="/analytics"
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-medium transition ${
+                  isActive('/analytics') ? 'text-white bg-slate-800' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <BarChart3 className="h-3.5 w-3.5 text-blue-400" />
+                Analytics
+              </Link>
+            )}
           </nav>
 
           <div className="hidden sm:flex items-center gap-2 border-l border-slate-800 pl-2.5">
@@ -233,6 +249,15 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
               className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 text-red-400"
             >
               Responder Ops
+            </Link>
+          )}
+          {showAnalyticsLink && (
+            <Link
+              to="/analytics"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-800 text-blue-400"
+            >
+              Operations Analytics
             </Link>
           )}
 
