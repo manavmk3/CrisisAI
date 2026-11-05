@@ -9,6 +9,7 @@ import incidentRoutes from './routes/incident.routes.js';
 import resourceRoutes from './routes/resource.routes.js';
 import allocationRoutes from './routes/allocation.routes.js';
 import assignmentRoutes from './routes/assignment.routes.js';
+import alertRoutes from './routes/alert.routes.js';
 import notFound from './middleware/notFound.js';
 import errorHandler from './middleware/errorHandler.js';
 
@@ -56,6 +57,7 @@ app.use('/api/incidents', incidentRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/allocations', allocationRoutes);
 app.use('/api/assignments', assignmentRoutes);
+app.use('/api/alerts', alertRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useRole, ROLES, ROLE_CONFIG } from '../../context/RoleContext';
 import { useAuth } from '../../context/AuthContext';
+import NotificationCenter from '../NotificationCenter';
 
 export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
   const { currentRole, setCurrentRole } = useRole();
@@ -71,6 +72,8 @@ export default function Navbar({ onToggleSidebar, isSidebarOpen }) {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {isAuthenticated && <NotificationCenter />}
+
           <div className="relative">
             <button
               onClick={() => setShowRoleDropdown(!showRoleDropdown)}

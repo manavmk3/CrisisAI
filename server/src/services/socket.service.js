@@ -381,6 +381,27 @@ export function emitResponderLocationUpdated(assignment) {
   emitEvent('assignment:location-updated', payload);
 }
 
+export function emitNewAlert(alert) {
+  if (!alert) return;
+  const recipientId = (alert.recipient?._id || alert.recipient || '').toString();
+  if (!recipientId) return;
+
+  const payload = {
+    event: 'alert:new',
+    alertId: (alert._id || alert.id).toString(),
+    id: (alert._id || alert.id).toString(),
+    recipient: recipientId,
+    incidentId: (alert.incidentId?._id || alert.incidentId || '').toString(),
+    type: alert.type,
+    message: alert.message,
+    readStatus: Boolean(alert.readStatus),
+    createdAt: alert.createdAt,
+    timestamp: new Date().toISOString(),
+  };
+
+  emitEvent('alert:new', payload, `user:${recipientId}`);
+}
+
 export default {
   initSocket,
   getIO,
@@ -398,4 +419,5 @@ export default {
   emitAssignmentStatusUpdated,
   emitAssignmentDeclined,
   emitResponderLocationUpdated,
+  emitNewAlert,
 };

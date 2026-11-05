@@ -22,6 +22,7 @@ import {
   emitIncidentVerificationChanged,
   emitIncidentResolved,
 } from '../services/socket.service.js';
+import { createCriticalIncidentAlerts } from '../services/alert.service.js';
 
 export const createIncident = async (req, res) => {
   try {
@@ -88,7 +89,6 @@ export const createIncident = async (req, res) => {
       }
     }
 
-    // Resolve coordinates if provided safely
     let resolvedCoordinates = { latitude: null, longitude: null };
     const rawCoords = coordinates || (latitude !== undefined && longitude !== undefined ? { latitude, longitude } : null);
     if (rawCoords && typeof rawCoords === 'object') {
@@ -183,6 +183,10 @@ export const createIncident = async (req, res) => {
     await incident.save();
 
     emitIncidentCreated(incident);
+
+    createCriticalIncidentAlerts(incident).catch((alertErr) => {
+      console.warn('[Incident Controller] Alert generation notice:', alertErr?.message || alertErr);
+    });
 
     return res.status(201).json({
       success: true,
@@ -471,6 +475,10 @@ export const updateIncident = async (req, res) => {
     await incident.save();
 
     emitIncidentUpdated(incident);
+
+    createCriticalIncidentAlerts(incident).catch((alertErr) => {
+      console.warn('[Incident Controller] Alert generation notice:', alertErr?.message || alertErr);
+    });
 
     const newVerificationState = incident.verificationState || 'verified';
     if (previousVerificationState !== newVerificationState) {
