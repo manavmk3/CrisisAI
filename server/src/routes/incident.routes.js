@@ -15,6 +15,7 @@ import {
   getIncidentAssignments,
 } from '../controllers/assignment.controller.js';
 import { getNearbyResources } from '../controllers/nearbyResource.controller.js';
+import { getIncidentRecommendedActions } from '../controllers/recommendedActions.controller.js';
 import { requireAuthorityOrAdmin } from './allocation.routes.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 
@@ -29,6 +30,8 @@ router.post('/:id/allocate', authenticate, requireAuthorityOrAdmin, allocateToIn
 router.get('/:id/allocations', getIncidentAllocations);
 router.get('/:id/candidates', getCandidatesForIncident);
 router.get('/:id/nearby-resources', authenticate, requireAuthorityOrAdmin, getNearbyResources);
+
+router.get('/:id/recommended-actions', authenticate, requireAuthorityOrAdmin, getIncidentRecommendedActions);
 
 router.post('/:id/assignments', authenticate, requireAuthorityOrAdmin, createAssignment);
 router.get('/:id/assignments', authenticate, getIncidentAssignments);

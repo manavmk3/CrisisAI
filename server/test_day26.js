@@ -192,14 +192,14 @@ async function setupDatabase() {
       connPromise,
       new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 3500)),
     ]);
-    console.log('  \uD83D\uDCE6 Connected to MongoDB Atlas.');
-    return false;
+    console.log('  \uD83D\uDCE6 Connected to MongoDB Atlas. Applying isolated test fixtures.');
   } catch (err) {
     console.log('  \u26A0\uFE0F  Atlas unavailable (' + err.message + '). Enabling in-memory simulation for tests.');
+  }
 
-    Incident.aggregate = async (pipeline) => runPipeline(memoryIncidents, pipeline);
-    ResourceAllocation.aggregate = async (pipeline) => runPipeline(memoryAllocations, pipeline);
-    Assignment.aggregate = async (pipeline) => runPipeline(memoryAssignments, pipeline);
+  Incident.aggregate = async (pipeline) => runPipeline(memoryIncidents, pipeline);
+  ResourceAllocation.aggregate = async (pipeline) => runPipeline(memoryAllocations, pipeline);
+  Assignment.aggregate = async (pipeline) => runPipeline(memoryAssignments, pipeline);
 
     User.findOne = async (query) => {
       if (query.email) {
@@ -345,7 +345,6 @@ async function setupDatabase() {
 
     return true;
   }
-}
 
 function makeToken(user) {
   return jwt.sign(

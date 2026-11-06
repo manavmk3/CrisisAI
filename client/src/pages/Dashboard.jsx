@@ -19,12 +19,15 @@ import {
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
+  Sparkles,
 } from 'lucide-react';
 import { useRole, ROLE_CONFIG } from '../context/RoleContext';
 import { useAuth } from '../context/AuthContext';
 import GlobeStudy from '@/components/ui/globe-study';
 import ResourceAllocationModal from '../components/allocations/ResourceAllocationModal';
 import IncidentMap from '../components/IncidentMap';
+import SituationSummary from '../components/SituationSummary';
+import RecommendedActions from '../components/RecommendedActions';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 const DASHBOARD_REALTIME_EVENTS = [
@@ -97,14 +100,14 @@ export default function Dashboard() {
   const [selectedIncidentForAllocation, setSelectedIncidentForAllocation] = useState(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentView = searchParams.get('view') === 'map' ? 'map' : 'triage';
+  const currentView = searchParams.get('view') === 'map' ? 'map' : searchParams.get('view') === 'actions' ? 'actions' : 'triage';
 
   const setView = (view) => {
     const nextParams = new URLSearchParams(searchParams);
-    if (view === 'map') {
-      nextParams.set('view', 'map');
-    } else {
+    if (view === 'triage') {
       nextParams.delete('view');
+    } else {
+      nextParams.set('view', view);
     }
     setSearchParams(nextParams);
   };
@@ -284,6 +287,8 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {canAllocate && <SituationSummary />}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="glass-card rounded-xl p-4 border border-slate-800 bg-slate-900/70 backdrop-blur-md">
             <div className="flex items-center justify-between text-xs text-slate-400">
@@ -348,6 +353,17 @@ export default function Dashboard() {
               <span>Priority Triage Queue</span>
             </button>
             <button
+              onClick={() => setView('actions')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                currentView === 'actions'
+                  ? 'bg-red-600 text-white shadow-md shadow-red-950'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Recommended Actions</span>
+            </button>
+            <button
               onClick={() => setView('map')}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
                 currentView === 'map'
@@ -384,11 +400,18 @@ export default function Dashboard() {
               </span>
             )}
             <span className="h-2 w-2 rounded-full bg-slate-600 hidden sm:inline" />
-            <span className="hidden sm:inline">Mode: {currentView === 'map' ? 'Interactive Crisis Map' : 'Triage Dispatch Queue'}</span>
+            <span className="hidden sm:inline">Mode: {currentView === 'map' ? 'Interactive Crisis Map' : currentView === 'actions' ? 'Explainable Recommended Actions' : 'Triage Dispatch Queue'}</span>
           </div>
         </div>
 
-        {currentView === 'map' ? (
+        {currentView === 'actions' ? (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5 backdrop-blur-md">
+            <RecommendedActions
+              onOpenAllocation={(incId) => setSelectedIncidentForAllocation(incId)}
+              onOpenAssignment={(incId) => navigate(`/incidents/${incId}`)}
+            />
+          </div>
+        ) : currentView === 'map' ? (
           <div className="space-y-4">
             <IncidentMap
               incidents={incidents}

@@ -26,6 +26,7 @@ import ResourceAllocationModal from '../components/allocations/ResourceAllocatio
 import NearbyResourceSearch from '../components/allocations/NearbyResourceSearch';
 import IncidentMap from '../components/IncidentMap';
 import AssignmentModal from '../components/AssignmentModal';
+import RecommendedActions from '../components/RecommendedActions';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 const DETAIL_REALTIME_EVENTS = [
@@ -718,6 +719,16 @@ export default function IncidentDetail() {
           </div>
         )}
       </div>
+
+      {canAllocate && (
+        <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5 space-y-4">
+          <RecommendedActions
+            incidentId={id}
+            onOpenAllocation={() => setIsAllocationModalOpen(true)}
+            onOpenAssignment={() => setIsAssignmentModalOpen(true)}
+          />
+        </div>
+      )}
 
       <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800">

@@ -6,7 +6,6 @@ import {
   Layers, 
   Users, 
   Cpu, 
-  Radio, 
   FileText, 
   Shield, 
   Navigation, 
@@ -15,12 +14,13 @@ import {
   PhoneCall, 
   Sliders, 
   X,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
-import { useRole, ROLES, ROLE_CONFIG } from '../../context/RoleContext';
+import { useRole, ROLE_CONFIG } from '../../context/RoleContext';
 
 export default function Sidebar({ isOpen, onClose }) {
-  const { currentRole, setCurrentRole, ROLES } = useRole();
+  const { currentRole, ROLES } = useRole();
   const location = useLocation();
 
   const navItemsByRole = {
@@ -38,6 +38,7 @@ export default function Sidebar({ isOpen, onClose }) {
     ],
     [ROLES.AUTHORITY]: [
       { label: 'Command Overview', path: '/dashboard', icon: Layers },
+      { label: 'AI Recommended Actions', path: '/dashboard?view=actions', icon: Sparkles, badge: 'Live AI' },
       { label: 'Priority Incident Triage', path: '/dashboard?view=triage', icon: AlertTriangle, badge: 'Live AI' },
       { label: 'Live Crisis Map', path: '/dashboard?view=map', icon: MapPin },
       { label: 'Resource Inventory', path: '/resources', icon: Truck },
@@ -47,6 +48,7 @@ export default function Sidebar({ isOpen, onClose }) {
     ],
     [ROLES.ADMIN]: [
       { label: 'Operations Overview', path: '/dashboard', icon: Layers },
+      { label: 'AI Recommended Actions', path: '/dashboard?view=actions', icon: Sparkles, badge: 'Live AI' },
       { label: 'Operations Analytics', path: '/analytics', icon: BarChart3 },
       { label: 'Resource Inventory', path: '/resources', icon: Truck },
       { label: 'User & Agency Directory', path: '/dashboard?view=users', icon: Users },
